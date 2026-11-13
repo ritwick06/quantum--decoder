@@ -75,7 +75,7 @@
       "candidate": "temporal_bidir_v1",
       "artifact": "artifacts/submissions/temporal_bidir_v1.csv",
       "sha256": "d9a5862e26d6d487a24b889287204cfbfd7db42efbb9c98f8e99af490e2c8344",
-      "status": "promoted locally; recommended for manual upload",
+      "status": "promoted locally; filename of second Kaggle entry unverified",
       "created_ist": "2026-11-13T21:36:48.119567+05:30",
       "submission_id": null,
       "submitted_at": null,
@@ -85,6 +85,31 @@
       "local_validation_ler": 0.03410125,
       "checkpoint_provenance_sha256": "95c47c132a2c4110b3f7221a6ff2d005818fa3ee11d92e9a926e7209501cfdd9",
       "validation_report_sha256": "923d05a8f789da82eaf3c8aedaec5281d55f57d38b5ccdd8b519cbcdcf58027b"
+    },
+    {
+      "candidate": "temporal_suffix_v1",
+      "artifact": "artifacts/submissions/temporal_suffix_v1.csv",
+      "sha256": "9eec94fc6a73357efc8ebaa460a26985c87a6b35166ca30774de9d7856b29e3e",
+      "status": "promoted locally; ready for manual upload",
+      "created_ist": "2026-11-13T22:14:31.993866+05:30",
+      "submission_id": null,
+      "submitted_at": null,
+      "public_score": null,
+      "private_score": null,
+      "selected_for_final": false,
+      "local_validation_ler": 0.03405625,
+      "checkpoint_provenance_sha256": "93a459f40262aeca95470f3874d28083e20f15478c00b14dc321cb1aa3c1acef",
+      "validation_report_sha256": "1813373bbb2b128d71545db5027fd13c0e2d8707d19d2de642250672851e997d",
+      "confirmation_sha256": "c70b7debeaa2b4f480b0c246576aafe75d79051483e8297b901629bc93029e19"
     }
-  ]
+  ],
+  "team_public_leaderboard_snapshot": {
+    "team": "PHANTOMS OF QUANTUM",
+    "rank": 8,
+    "team_score": 0.03415,
+    "visible_entries": 2,
+    "leader_score": 0.03361,
+    "date_ist": "2026-11-13",
+    "evidence": "User-provided Kaggle leaderboard screenshot. The screenshot does not show the submission filename."
+  }
 }

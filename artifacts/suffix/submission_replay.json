@@ -1,0 +1,21 @@
+{
+  "candidate": "temporal_suffix_v1",
+  "fresh_process": true,
+  "batch_size": 3072,
+  "byte_identical_csv": true,
+  "validation": {
+    "rows": 200000,
+    "columns": [
+      "id",
+      "L0",
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "sha256": "9eec94fc6a73357efc8ebaa460a26985c87a6b35166ca30774de9d7856b29e3e",
+    "id_order_matches": true,
+    "binary": true,
+    "duplicate_ids": 0,
+    "encoding": "UTF-8"
+  }
+}

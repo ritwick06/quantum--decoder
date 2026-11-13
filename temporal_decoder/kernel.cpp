@@ -117,7 +117,8 @@ struct Scratch {
     Scratch() { ranked.reserve(beam_width * fanout); }
 
     void advance(Beam& beam, const Edge* table, const double* marginal,
-                 unsigned syndrome, unsigned next_syndrome, int width) {
+                 unsigned syndrome, unsigned next_syndrome, int width,
+                 unsigned likelihood_shift = 0, unsigned terminal_syndrome = 0) {
         ranked.clear();
         for (int i = 0; i < beam.count; ++i) {
             const auto& state = beam.links[i];
@@ -131,7 +132,8 @@ struct Scratch {
             }
         }
         for (auto& item : ranked) {
-            item.score = sums[item.boundary][0] * marginal[item.boundary ^ next_syndrome];
+            const auto likelihood_index = ((item.boundary ^ next_syndrome) << likelihood_shift) | terminal_syndrome;
+            item.score = sums[item.boundary][0] * marginal[likelihood_index];
         }
         beam.count = std::min(int(ranked.size()), width);
         std::partial_sort(ranked.begin(), ranked.begin() + beam.count, ranked.end(), earlier);
@@ -196,6 +198,34 @@ extern "C" int temporal_wide_moments(const std::uint16_t* observed, std::size_t 
     return decode_rows(observed, shots, tables, marginals, terminal, wide_width, [output](std::size_t shot, const Mass& posterior) {
         std::copy(posterior.begin(), posterior.end(), output + moments * shot);
     });
+}
+
+extern "C" int temporal_suffix_moments(const std::uint16_t* observed, std::size_t shots,
+                                       const Edge* const* tables, const double* const* marginals,
+                                       const float* suffix, double* output) {
+    try {
+        Scratch scratch;
+        for (std::size_t shot = 0; shot < shots; ++shot) {
+            const auto* syndrome = observed + 6 * shot;
+            Beam beam;
+            for (int t = 0; t < 3 && beam.count; ++t) {
+                scratch.advance(beam, tables[t], marginals[t], syndrome[t], syndrome[t + 1], beam_width);
+            }
+            scratch.advance(beam, tables[3], marginals[3], syndrome[3], syndrome[4],
+                            beam_width, 7, syndrome[5]);
+            Mass posterior{};
+            for (int i = 0; i < beam.count; ++i) {
+                const auto& state = beam.links[i];
+                const auto parity = ((state.boundary ^ syndrome[4]) << 7) | syndrome[5];
+                const auto* local = suffix + std::size_t(parity) * moments;
+                for (int j = 0; j < moments; ++j) posterior[j] += state.mass[j] * local[j];
+            }
+            std::copy(posterior.begin(), posterior.end(), output + moments * shot);
+        }
+        return 0;
+    } catch (...) {
+        return 1;
+    }
 }
 
 // Tables are ordered left to right for two slices, then right to left for three.

@@ -1,0 +1,5 @@
+X: 390 exact final-slice mechanisms, total mass 1.000000007
+X_reverse: 471 exact final-slice mechanisms, total mass 1.000000003
+Z: 472 exact final-slice mechanisms, total mass 0.999999994
+Z_reverse: 384 exact final-slice mechanisms, total mass 1.000000019
+Built temporal_suffix_v1 in 6.4s with peak RSS 101.1 MiB

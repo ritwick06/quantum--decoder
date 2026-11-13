@@ -12,3 +12,4 @@ __pycache__/
 data/adapters/
 quantum-error-correction-decoder/
 /quantum-error-correction-decoder.zip
+/artifacts/hand_in/*.zip

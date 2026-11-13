@@ -1,5 +1,7 @@
 import ctypes
 import itertools
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -8,7 +10,7 @@ import stim
 
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
-from tools.build_temporal import ADAPTIVE, CHECKPOINT, MIDPOINT, xor_moments
+from tools.build_temporal import ADAPTIVE, CHECKPOINT, MIDPOINT, SUFFIX, spectral_builder, xor_moments
 
 
 class TemporalTests(unittest.TestCase):
@@ -87,6 +89,34 @@ class TemporalTests(unittest.TestCase):
         np.testing.assert_allclose(actual, expected, rtol=1e-7, atol=1e-10)
         np.testing.assert_allclose(xor_moments(incoming, logical, p, 4), marginal, atol=1e-15)
 
+    def test_full_local_distribution_matches_all_fault_subsets(self):
+        incoming = (1, 2, 3, 0, 3, 0)
+        outgoing = (2, 1, 3, 1, 2, 0)
+        logical = (1, 8, 5, 3, 10, 4)
+        p = np.array([0.12, 0.08, 0.19, 0.04, 0.09, 0.1])
+        tags = np.array([(i << 18) | (o << 4) | l for i, o, l in zip(incoming, outgoing, logical, strict=True)], dtype=np.uint32)
+        table = np.zeros((4, decoder.FANOUT), dtype=decoder.EDGE)
+        with tempfile.TemporaryDirectory() as temp:
+            build = spectral_builder(Path(temp))
+            self.assertEqual(build(tags.ctypes.data, p.ctypes.data, len(tags), 2, 2, table.ctypes.data), 0)
+        expected = np.zeros((4, 4, 5))
+        for selected in itertools.product((False, True), repeat=len(tags)):
+            a, b, word = 0, 0, 0
+            for i, included in enumerate(selected):
+                if included:
+                    a ^= incoming[i]
+                    b ^= outgoing[i]
+                    word ^= logical[i]
+            signs = [1, *[(-1)**((word >> bit) & 1) for bit in range(4)]]
+            expected[a, b] += np.prod(np.where(selected, p, 1 - p)) * np.array(signs)
+        actual = np.zeros_like(expected)
+        for a, row in enumerate(table):
+            weights = row["mass"][:, 0]
+            self.assertTrue(np.all(weights[:-1] >= weights[1:]))
+            for edge in row[weights > 0]:
+                actual[a, edge["outgoing"]] = edge["mass"]
+        np.testing.assert_allclose(actual, expected, rtol=1e-7, atol=2e-12)
+
     def test_cross_slice_parities_and_logical_cancellation(self):
         tables = [np.zeros((2, decoder.FANOUT), dtype=decoder.EDGE) for _ in range(5)]
         tables[0][0, 0] = (1, [0.7, -0.7, 0.7, 0.7, 0.7])
@@ -130,6 +160,28 @@ class TemporalTests(unittest.TestCase):
                                           middle.ctypes.data, actual.ctypes.data)
         self.assertEqual(status, 0)
         np.testing.assert_array_equal(actual, expected)
+
+    def test_suffix_uses_last_observation_and_preserves_logical_signs(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / SUFFIX / "kernel.so")
+        tables = [np.zeros((64, decoder.FANOUT), dtype=decoder.EDGE) for _ in range(4)]
+        for table in tables[:3]:
+            table[0, 0] = (0, [1.0] * 5)
+        for mask in range(32):
+            tables[3][0, mask] = (mask, [1.0] * 5)
+        tables[3][0, 32] = (32, [0.5, -0.5, 0.5, 0.5, 0.5])
+        terminal = np.zeros((64 * 128, 5), dtype=np.float32)
+        terminal[0] = [1.0] * 5
+        terminal[32 * 128 + 1] = [0.25, 0.25, -0.25, 0.25, 0.25]
+        marginals = [np.ones(64) for _ in range(3)] + [terminal[:, 0].astype(np.float64)]
+        table_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((2, 6), dtype=np.uint16)
+        observed[1, 5] = 1
+        actual = np.empty((2, 5), dtype=np.float64)
+        status = kernel.temporal_suffix_moments(observed.ctypes.data, len(observed), table_ptrs, marginal_ptrs,
+                                               terminal.ctypes.data, actual.ctypes.data)
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, [[1.0] * 5, [0.125, -0.125, -0.125, 0.125, 0.125]])
 
     def test_wide_beam_recovers_a_path_pruned_by_narrow_beam(self):
         kernel = decoder.load_kernel(CHECKPOINT.parent / ADAPTIVE / "kernel.so")

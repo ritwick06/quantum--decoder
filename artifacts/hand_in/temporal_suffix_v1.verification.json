@@ -1,0 +1,7 @@
+{
+  "candidate": "temporal_suffix_v1",
+  "archive_sha256": "8d58a7c9cd02901052fd12b001dede48ea8a069b110cd0173cb7d5ec9602f6e2",
+  "csv_sha256": "9eec94fc6a73357efc8ebaa460a26985c87a6b35166ca30774de9d7856b29e3e",
+  "rows": 200000,
+  "verified_all_predictions_in_fresh_process": true
+}

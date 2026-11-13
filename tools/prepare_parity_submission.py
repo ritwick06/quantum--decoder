@@ -36,6 +36,13 @@ def main():
     checkpoint_hash = sha256(checkpoint / "provenance.json")
     if not report["passed"] or report["checkpoint_provenance_sha256"] != checkpoint_hash:
         raise ValueError("This checkpoint has no passing frozen-validation report")
+    if args.candidate in (evaluate_temporal.SPECTRAL, evaluate_temporal.SUFFIX):
+        confirmation_path = evidence_folder / "confirmation.json"
+        confirmation = json.loads(confirmation_path.read_text())
+        expected_checkpoints = confirmation["checkpoint_provenance_sha256"]
+        if (not confirmation["passed"] or confirmation["candidate"] != args.candidate
+                or expected_checkpoints.get(args.candidate) != checkpoint_hash):
+            raise ValueError("This checkpoint has no passing independent confirmation")
     original = json.loads((ROOT / "artifacts/stage01/original_files.json").read_text())
     data_dir = ROOT / "quantum-error-correction-decoder"
     inputs = {name: data_dir / name for name in ("test.csv", "sample_submission.csv", "X_circuit.stim", "Z_circuit.stim")}

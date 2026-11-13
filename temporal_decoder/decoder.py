@@ -31,7 +31,7 @@ def load_kernel(path):
     library.temporal_build.restype = ctypes.c_int
     library.temporal_decode.argtypes = [pointer, ctypes.c_size_t, pointer, pointer, pointer, pointer]
     library.temporal_decode.restype = ctypes.c_int
-    for name in ("temporal_moments", "temporal_midpoint", "temporal_wide_moments"):
+    for name in ("temporal_moments", "temporal_midpoint", "temporal_wide_moments", "temporal_suffix_moments"):
         infer = getattr(library, name, None)
         if infer is not None:
             infer.argtypes = library.temporal_decode.argtypes
@@ -48,7 +48,7 @@ def load_model():
     try:
         metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
         version = metadata["format_version"]
-        if version not in (1, 2, 3, 4):
+        if version not in (1, 2, 3, 4, 5):
             raise ValueError("Unsupported temporal model format")
         for name, expected in metadata["assets"].items():
             if digest(HERE / name) != expected:
@@ -63,6 +63,10 @@ def load_model():
             groups = metadata["detector_groups"][basis]
             if version == 3:
                 models[fingerprint] = version, (_load_midpoint(basis, groups),)
+                continue
+            if version == 5:
+                models[fingerprint] = version, (_load_suffix(basis, groups),
+                                                _load_suffix(f"{basis}_reverse", groups[::-1]))
                 continue
             directions = [_load_direction(basis, groups)]
             if version in (2, 4):
@@ -108,6 +112,17 @@ def _load_midpoint(basis, groups):
     return groups, tables, marginals, middle
 
 
+def _load_suffix(prefix, groups):
+    _check_groups(groups)
+    tables = tuple(_load_array(f"{prefix}_edges_{t}", (1 << size, FANOUT), EDGE)
+                   for t, size in enumerate(ROUND_SIZES[:4]))
+    marginals = tuple(_load_array(f"{prefix}_marginal_{t}", (1 << size,), np.float64)
+                      for t, size in enumerate(ROUND_SIZES[1:4], start=1))
+    marginals += (_load_array(f"{prefix}_suffix_mass", (1 << 21,), np.float64),)
+    terminal = _load_array(f"{prefix}_suffix", (1 << 21, 5), np.float32)
+    return groups, tables, marginals, terminal
+
+
 def observed_slices(events, groups):
     observed = np.empty((len(events), 6), dtype=np.uint16)
     for time, indexes in enumerate(groups):
@@ -116,17 +131,19 @@ def observed_slices(events, groups):
     return observed
 
 
-def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False, wide=False):
+def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False, wide=False, suffix=False):
     groups, tables, marginals, terminal = model
     observed = observed_slices(events, groups)
-    table_pointers = (ctypes.c_void_p * 5)(*(table.ctypes.data for table in tables))
-    marginal_pointers = (ctypes.c_void_p * 5)(*(marginal.ctypes.data for marginal in marginals))
-    if return_moments or midpoint or wide:
+    table_pointers = (ctypes.c_void_p * len(tables))(*(table.ctypes.data for table in tables))
+    marginal_pointers = (ctypes.c_void_p * len(marginals))(*(marginal.ctypes.data for marginal in marginals))
+    if return_moments or midpoint or wide or suffix:
         result = np.empty((len(events), 5), dtype=np.float64)
         if midpoint:
             infer = kernel.temporal_midpoint
         elif wide:
             infer = kernel.temporal_wide_moments
+        elif suffix:
+            infer = kernel.temporal_suffix_moments
         else:
             infer = kernel.temporal_moments
     else:
@@ -192,6 +209,10 @@ def decode(circuit, detector_events):
         result = _decode_temporal(events, directions[0], kernel)
     elif version == 3:
         result = logical_decisions(_decode_temporal(events, directions[0], kernel, midpoint=True))
+    elif version == 5:
+        forward, reverse = directions
+        result = logical_decisions(_decode_temporal(events, forward, kernel, suffix=True)
+                                   + _decode_temporal(events, reverse, kernel, suffix=True))
     else:
         result = _bidirectional(events, directions, kernel, adaptive=version == 4)
     unknown = result < 0
