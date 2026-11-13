@@ -1,5 +1,7 @@
 # Quantum Error Correction Decoder Hackathon
 
+For the current upload and hand-in files, see [Best verified save](BEST_SAVE.md).
+
 PHANTOMS OF QUANTUM's circuit-based decoder predicts four logical bits for each X or Z detector trace. The latest model processes the trace in both directions and uses a joint likelihood for the last two measurements in each pass. It combines the retained probability mass and uses the parity model when the result gives little support for a bit.
 
 | Candidate | Frozen local LER | Local time for 200,000 shots | Kaggle public LER |

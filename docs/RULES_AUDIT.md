@@ -30,6 +30,8 @@
 
 Source for supplied competition requirements: [Kaggle Rules](https://www.kaggle.com/competitions/quantum-error-correction-decoder/rules).
 
+A user-provided photo of the Kaggle Submissions rules on 13 November also shows bitwise MAE, approximately 30% public and 70% private scoring, at most ten submissions per team, and up to two final selections with the better Private score counting.
+
 The inspected [organizer README](https://github.com/JuliusRye/QEC_Decoder_Hakathon_2026) contains conflicting one-file/two-file instructions, a daily submission allowance, and competing runtime parameters of `(15.4 seconds, 0.2)` and `(3 seconds, 0.1)`. Adopt the supplied Kaggle requirements above. The README's separate Public/Private folder descriptions do not describe the downloaded dataset's layout.
 
 ## Deadlines
