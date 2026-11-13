@@ -98,3 +98,5 @@ The full local distributions retained more probability in every table. The impro
 | 2026-11-13 | `temporal_suffix_v1` | Original frozen validation, X seed 2026111301 and Z seed 2026111302 | 0.03466750 | 0.03344500 | 0.03405625 | 9.75228 s, four workers | Pending |
 
 Frozen paired LER improved by 0.000045 with a 95% interval of [0.00000314, 0.00008686]. An independent sample of 500,000 Stim shots confirmed the improvement, with a paired gain of 0.000030 and 95% interval of [0.00000381, 0.00005619]. [Exact final slices experiment](EXACT_SUFFIX_EXPERIMENT.md)
+
+The user's submissions and leaderboard screenshots show `temporal_bidir_v1.csv` and `temporal_suffix_v1.csv` both complete at public LER **0.03415**. PHANTOMS OF QUANTUM remained #8 with three entries. The screenshot shows the bidirectional entry selected for final scoring and the final-slice entry unchecked. [Submission ledger](../artifacts/submissions/ledger.json)

@@ -8,10 +8,10 @@ PHANTOMS OF QUANTUM's circuit-based decoder predicts four logical bits for each 
 |---|---:|---:|---:|
 | `parity_v1` | 0.26759875 | 1.011 s, one thread | 0.27096 |
 | `temporal_v1` | 0.03500125 | 4.110 s, four threads | Pending |
-| `temporal_bidir_v1` | 0.03410125 | 8.218 s, four threads | Filename unverified |
-| `temporal_suffix_v1` | **0.03405625** | 9.752 s, four threads | Pending |
+| `temporal_bidir_v1` | 0.03410125 | 8.218 s, four threads | 0.03415 |
+| `temporal_suffix_v1` | **0.03405625** | 9.752 s, four threads | 0.03415 |
 
-The recommended submission for manual upload is [temporal_suffix_v1.csv](artifacts/submissions/temporal_suffix_v1.csv). Its [manifest](artifacts/submissions/temporal_suffix_v1.csv.manifest.json) identifies the input files, checkpoint and validation report. The [final two slices experiment](docs/EXACT_SUFFIX_EXPERIMENT.md) records the algorithm and independent confirmation. The [submission ledger](artifacts/submissions/ledger.json) records Kaggle outcomes.
+The best verified local save is [temporal_suffix_v1.csv](artifacts/submissions/temporal_suffix_v1.csv). Its [manifest](artifacts/submissions/temporal_suffix_v1.csv.manifest.json) identifies the input files, checkpoint and validation report. The [final two slices experiment](docs/EXACT_SUFFIX_EXPERIMENT.md) records the algorithm and independent confirmation. The [submission ledger](artifacts/submissions/ledger.json) records Kaggle outcomes.
 
 ## Reproduce the submission
 
