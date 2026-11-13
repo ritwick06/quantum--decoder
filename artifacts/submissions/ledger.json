@@ -70,6 +70,21 @@
       "local_validation_ler": 0.03500125,
       "checkpoint_provenance_sha256": "495b701d217bdcac1fc6d7c76cde86823665ff747c479e393af371e0ff3dbb33",
       "validation_report_sha256": "e7365f82182a1221f99325ad86a6475d1c39e78cad7073df7165db62b9462b0b"
+    },
+    {
+      "candidate": "temporal_bidir_v1",
+      "artifact": "artifacts/submissions/temporal_bidir_v1.csv",
+      "sha256": "d9a5862e26d6d487a24b889287204cfbfd7db42efbb9c98f8e99af490e2c8344",
+      "status": "promoted locally; recommended for manual upload",
+      "created_ist": "2026-11-13T21:36:48.119567+05:30",
+      "submission_id": null,
+      "submitted_at": null,
+      "public_score": null,
+      "private_score": null,
+      "selected_for_final": false,
+      "local_validation_ler": 0.03410125,
+      "checkpoint_provenance_sha256": "95c47c132a2c4110b3f7221a6ff2d005818fa3ee11d92e9a926e7209501cfdd9",
+      "validation_report_sha256": "923d05a8f789da82eaf3c8aedaec5281d55f57d38b5ccdd8b519cbcdcf58027b"
     }
   ]
 }

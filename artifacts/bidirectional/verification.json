@@ -1,0 +1,12 @@
+{
+  "stage": "04",
+  "candidate": "temporal_bidir_v1",
+  "passed": true,
+  "tests_passed": 31,
+  "validated_rows": 200000,
+  "csv_sha256": "d9a5862e26d6d487a24b889287204cfbfd7db42efbb9c98f8e99af490e2c8344",
+  "fresh_process_validation_match": true,
+  "fresh_process_csv_byte_identical": true,
+  "checkpoint_files_verified": true,
+  "incumbent_checkpoint_and_csv_preserved": true
+}

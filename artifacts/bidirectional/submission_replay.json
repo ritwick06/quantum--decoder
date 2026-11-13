@@ -1,0 +1,22 @@
+{
+  "candidate": "temporal_bidir_v1",
+  "fresh_process": true,
+  "batch_size": 3072,
+  "byte_identical_csv": true,
+  "validation": {
+    "rows": 200000,
+    "columns": [
+      "id",
+      "L0",
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "sha256": "d9a5862e26d6d487a24b889287204cfbfd7db42efbb9c98f8e99af490e2c8344",
+    "id_order_matches": true,
+    "binary": true,
+    "duplicate_ids": 0,
+    "encoding": "UTF-8"
+  },
+  "sha256": "d9a5862e26d6d487a24b889287204cfbfd7db42efbb9c98f8e99af490e2c8344"
+}

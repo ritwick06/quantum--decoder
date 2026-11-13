@@ -100,9 +100,11 @@ extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int
     }
 }
 
-extern "C" int temporal_decode(const std::uint16_t* observed, std::size_t shots,
-                               const Edge* const* tables, const double* const* marginals,
-                               const double* terminal, std::int8_t* output) {
+namespace {
+template <typename Finish>
+int decode_rows(const std::uint16_t* observed, std::size_t shots,
+                const Edge* const* tables, const double* const* marginals,
+                const double* terminal, Finish finish) {
     try {
         std::vector<Mass> sums(1u << out_bits);
         std::vector<RankedLink> ranked;
@@ -141,14 +143,31 @@ extern "C" int temporal_decode(const std::uint16_t* observed, std::size_t shots,
                 const auto* local = terminal + (state.boundary ^ syndrome[5]) * moments;
                 for (int j = 0; j < moments; ++j) posterior[j] += state.mass[j] * local[j];
             }
-            for (int bit = 0; bit < 4; ++bit) {
-                const auto signal = posterior[bit + 1];
-                output[4 * shot + bit] = posterior[0] <= 0 || std::abs(signal) <= 0.025 * posterior[0]
-                    ? -1 : std::int8_t(signal < 0);
-            }
+            finish(shot, posterior);
         }
         return 0;
     } catch (...) {
         return 1;
     }
+}
+}
+
+extern "C" int temporal_decode(const std::uint16_t* observed, std::size_t shots,
+                               const Edge* const* tables, const double* const* marginals,
+                               const double* terminal, std::int8_t* output) {
+    return decode_rows(observed, shots, tables, marginals, terminal, [output](std::size_t shot, const Mass& posterior) {
+        for (int bit = 0; bit < 4; ++bit) {
+            const auto signal = posterior[bit + 1];
+            output[4 * shot + bit] = posterior[0] <= 0 || std::abs(signal) <= 0.025 * posterior[0]
+                ? -1 : std::int8_t(signal < 0);
+        }
+    });
+}
+
+extern "C" int temporal_moments(const std::uint16_t* observed, std::size_t shots,
+                                const Edge* const* tables, const double* const* marginals,
+                                const double* terminal, double* output) {
+    return decode_rows(observed, shots, tables, marginals, terminal, [output](std::size_t shot, const Mass& posterior) {
+        std::copy(posterior.begin(), posterior.end(), output + moments * shot);
+    });
 }

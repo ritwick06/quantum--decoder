@@ -1,5 +1,6 @@
-"""Build the temporal likelihood tables for the fixed Stage 04 experiment."""
+"""Build temporal likelihood tables for either recorded experiment."""
 
+import argparse
 import json
 from pathlib import Path
 import platform
@@ -42,12 +43,14 @@ def projected_masks(checks, indexes):
     return shifts @ checks[indexes].astype(np.uint32)
 
 
-def generate_basis(path, basis, circuit, kernel):
+def generate_basis(path, basis, circuit, kernel, *, reverse=False):
     information = problem_info(circuit)
     checks, logicals, probabilities = information["H"], information["L"], information["p"]
     if not np.isfinite(probabilities).all() or np.any((probabilities < 0) | (probabilities >= 0.5)):
         raise ValueError(f"Unexpected independent fault probabilities in {basis}")
     times = np.array([circuit.get_detector_coordinates()[i][-1] for i in range(70)], dtype=int)
+    if reverse:
+        times = 5 - times
     groups = [np.flatnonzero(times == t).tolist() for t in range(6)]
     if tuple(map(len, groups)) != ROUND_SIZES:
         raise ValueError(f"Unexpected detector time slices in {basis}")
@@ -82,9 +85,16 @@ def generate_basis(path, basis, circuit, kernel):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bidirectional", action="store_true")
+    args = parser.parse_args()
+    candidate = "temporal_bidir_v1" if args.bidirectional else CANDIDATE
+    destination = CHECKPOINT.parent / candidate
+    design = ("docs/BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md" if args.bidirectional
+              else "docs/STAGE04_TEMPORAL_EXPERIMENT.md")
     start = time.perf_counter()
-    if CHECKPOINT.exists():
-        raise FileExistsError(CHECKPOINT)
+    if destination.exists():
+        raise FileExistsError(destination)
     if sys.version_info[:2] != (3, 13) or (np.__version__, stim.__version__) != ("2.2.6", "1.16.0"):
         raise RuntimeError("Use the pinned Python, NumPy and Stim environment")
     fallback = json.loads((FALLBACK / "provenance.json").read_text())
@@ -92,10 +102,16 @@ def main():
         if sha256(FALLBACK / name) != expected:
             raise ValueError(f"Parity fallback changed: {name}")
     audit = json.loads((ROOT / "artifacts/stage01/report.json").read_text())
+    incumbent = json.loads((CHECKPOINT / "provenance.json").read_text()) if args.bidirectional else None
+    if incumbent:
+        for name, digest in incumbent["files"].items():
+            if sha256(CHECKPOINT / name) != digest:
+                raise ValueError(f"Forward checkpoint changed: {name}")
+        forward_metadata = json.loads((CHECKPOINT / "model.json").read_text())
     compile_args = ["g++", "-std=c++17", "-O3", "-fPIC", "-shared", "-ffp-contract=off", "-march=x86-64-v2"]
     CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".temporal-", dir=CHECKPOINT.parent) as temp:
-        path = Path(temp) / CANDIDATE
+        path = Path(temp) / candidate
         path.mkdir()
         source = ROOT / "temporal_decoder"
         for name in ("decoder.py", "kernel.cpp"):
@@ -111,28 +127,40 @@ def main():
             fingerprints[basis] = circuit_digest(circuit)
             if fingerprints[basis] != audit["circuits"][basis]["canonical_circuit_sha256"]:
                 raise ValueError(f"Audited circuit changed: {basis}")
-            detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
+            if incumbent:
+                detector_groups[basis] = forward_metadata["detector_groups"][basis]
+                retained_mass[basis] = incumbent["retained_mass_by_slice"][basis]
+                for name in incumbent["files"]:
+                    if name.startswith(f"{basis}_") and name.endswith(".npy"):
+                        shutil.copyfile(CHECKPOINT / name, path / name)
+                prefix = f"{basis}_reverse"
+                groups, retained_mass[prefix] = generate_basis(path, prefix, circuit, kernel, reverse=True)
+                if groups != detector_groups[basis][::-1]:
+                    raise ValueError(f"Reversed detector groups changed the within-slice order for {basis}")
+            else:
+                detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
         assets = {str(file.relative_to(path)): sha256(file) for file in sorted(path.rglob("*")) if file.is_file()}
-        write_json(path / "model.json", {"format_version": 1, "canonical_circuit_sha256": fingerprints,
+        write_json(path / "model.json", {"format_version": 2 if args.bidirectional else 1, "canonical_circuit_sha256": fingerprints,
                                         "detector_groups": detector_groups, "assets": assets})
         elapsed = time.perf_counter() - start
         peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
         if elapsed > 1200 or peak_rss > 5 * 1024**3:
             raise RuntimeError("Temporal table generation exceeded the approved budget")
         write_json(path / "provenance.json", {
-            "candidate": CANDIDATE, "files": {**assets, "model.json": sha256(path / "model.json")},
+            "candidate": candidate, "files": {**assets, "model.json": sha256(path / "model.json")},
             "build_seconds": elapsed, "build_peak_rss_bytes": peak_rss, "retained_mass_by_slice": retained_mass,
             "build_command": [*compile_args, "kernel.cpp", "-o", "kernel.so"],
             "compiler": subprocess.check_output(["g++", "--version"], text=True).splitlines()[0],
             "python": platform.python_version(), "organizer_revision": audit["source_revision"],
             "fallback_provenance_sha256": sha256(FALLBACK / "provenance.json"),
-            "design_sha256": sha256(ROOT / "docs/STAGE04_TEMPORAL_EXPERIMENT.md"),
+            "design_sha256": sha256(ROOT / design),
+            "forward_provenance_sha256": sha256(CHECKPOINT / "provenance.json") if incumbent else None,
             "asset_generator_sha256": sha256(Path(__file__)),
         })
-        if CHECKPOINT.exists():
-            raise FileExistsError(CHECKPOINT)
-        path.rename(CHECKPOINT)
-    print(f"Built {CANDIDATE} in {elapsed:.1f}s with peak RSS {peak_rss / 1024**2:.1f} MiB", flush=True)
+        if destination.exists():
+            raise FileExistsError(destination)
+        path.rename(destination)
+    print(f"Built {candidate} in {elapsed:.1f}s with peak RSS {peak_rss / 1024**2:.1f} MiB", flush=True)
 
 
 if __name__ == "__main__":

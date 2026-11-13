@@ -20,28 +20,46 @@ EVIDENCE = ROOT / "artifacts/stage04"
 REPORT = EVIDENCE / "validation.json"
 
 
-def checkpoint_decoder():
-    provenance = json.loads((CHECKPOINT / "provenance.json").read_text())
-    if provenance["candidate"] != CANDIDATE:
+def locations(candidate):
+    if candidate == CANDIDATE:
+        return CHECKPOINT, EVIDENCE
+    if candidate == "temporal_bidir_v1":
+        return CHECKPOINT.parent / candidate, ROOT / "artifacts/bidirectional"
+    raise ValueError(f"Unknown temporal candidate: {candidate}")
+
+
+def checkpoint_decoder(candidate=CANDIDATE):
+    checkpoint, _ = locations(candidate)
+    provenance = json.loads((checkpoint / "provenance.json").read_text())
+    if provenance["candidate"] != candidate:
         raise ValueError("Unexpected candidate checkpoint")
     for name, expected in provenance["files"].items():
-        if sha256(CHECKPOINT / name) != expected:
+        if sha256(checkpoint / name) != expected:
             raise ValueError(f"Checkpoint checksum mismatch: {name}")
-    spec = importlib.util.spec_from_file_location(CANDIDATE, CHECKPOINT / "decoder.py")
+    spec = importlib.util.spec_from_file_location(candidate, checkpoint / "decoder.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.decode, provenance
 
 
-def evaluate(decoder, provenance):
-    if REPORT.exists():
-        raise FileExistsError(f"Validation already recorded at {REPORT}")
-    tests = re.search(r"Ran (\d+) tests in [0-9.]+s\s+OK\s*$", (EVIDENCE / "tests.log").read_text())
-    if not tests or int(tests[1]) < 29:
+def evaluate(decoder, provenance, candidate=CANDIDATE):
+    checkpoint, evidence = locations(candidate)
+    report = evidence / "validation.json"
+    if report.exists():
+        raise FileExistsError(f"Validation already recorded at {report}")
+    bidirectional = candidate == "temporal_bidir_v1"
+    tests = re.search(r"Ran (\d+) tests in [0-9.]+s\s+OK\s*$", (evidence / "tests.log").read_text())
+    if not tests or int(tests[1]) < (31 if bidirectional else 29):
         raise ValueError("Run all decoder checks before scoring frozen validation")
     circuits, data, audit = input_data()
-    incumbent, _ = parity_decoder()
-    previous = json.loads((ROOT / "artifacts/stage03b/validation.json").read_text())
+    if bidirectional:
+        incumbent, _ = checkpoint_decoder()
+        previous = json.loads(REPORT.read_text())
+        incumbent_name = CANDIDATE
+    else:
+        incumbent, _ = parity_decoder()
+        previous = json.loads((ROOT / "artifacts/stage03b/validation.json").read_text())
+        incumbent_name = "parity_v1"
     incumbent_bits = predict(incumbent, circuits, data)
     if prediction_hashes(incumbent_bits) != previous["prediction_sha256"]:
         raise ValueError("Incumbent predictions differ from their frozen report")
@@ -77,13 +95,16 @@ def evaluate(decoder, provenance):
     median = statistics.median(runs)
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
     penalized = combined * max(1, median / 15.4)**0.2
-    gates = {"ler_gain": gain >= 0.025, "dense_ler_gain": dense_gain >= 0.020,
+    gates = {"ler_gain": gain >= (0.0005 if bidirectional else 0.025),
              "both_bases": all(ler[basis] <= previous["ler"][basis] for basis in "XZ"),
-             "paired_interval": ci[0] > 0, "runtime": median <= 45, "peak_rss": rss <= 2 * 1024**3,
-             "penalized_ler_sensitivity": penalized < previous["combined_ler"],
+             "paired_interval": ci[0] > 0, "runtime": median <= (12 if bidirectional else 45),
+             "peak_rss": rss <= 2 * 1024**3,
+             "penalized_ler_sensitivity": penalized < previous["combined_ler"] * max(1, previous["median_seconds"] / 15.4)**0.2,
              "build_resources": provenance["build_seconds"] <= 1200 and provenance["build_peak_rss_bytes"] <= 5 * 1024**3}
-    return {"candidate": CANDIDATE, "checkpoint_provenance_sha256": sha256(CHECKPOINT / "provenance.json"),
-            "validation_manifest_sha256": audit["validation_manifest_sha256"], "incumbent": "parity_v1",
+    if not bidirectional:
+        gates["dense_ler_gain"] = dense_gain >= 0.020
+    return {"candidate": candidate, "checkpoint_provenance_sha256": sha256(checkpoint / "provenance.json"),
+            "validation_manifest_sha256": audit["validation_manifest_sha256"], "incumbent": incumbent_name,
             "incumbent_ler": previous["ler"], "incumbent_combined_ler": previous["combined_ler"],
             "ler": ler, "combined_ler": combined, "errors": errors, "paired_gain": gain, "paired_gain_ci95": ci,
             "dense": dense, "dense_gain": dense_gain, "runs_seconds": runs, "median_seconds": median,
@@ -94,19 +115,22 @@ def evaluate(decoder, provenance):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--candidate", choices=(CANDIDATE, "temporal_bidir_v1"), default=CANDIDATE)
     parser.add_argument("--replay", action="store_true")
     args = parser.parse_args()
-    decoder, provenance = checkpoint_decoder()
+    decoder, provenance = checkpoint_decoder(args.candidate)
+    _, evidence = locations(args.candidate)
+    report = evidence / "validation.json"
     if args.replay:
-        recorded = json.loads(REPORT.read_text())
+        recorded = json.loads(report.read_text())
         circuits, data, _ = input_data()
         hashes = prediction_hashes(predict(decoder, circuits, data))
         if hashes != recorded["prediction_sha256"]:
             raise ValueError("Fresh process produced different predictions")
-        result = {"candidate": CANDIDATE, "prediction_sha256": hashes, "match": True}
+        result = {"candidate": args.candidate, "prediction_sha256": hashes, "match": True}
     else:
-        result = evaluate(decoder, provenance)
-        write_json(REPORT, result)
+        result = evaluate(decoder, provenance, args.candidate)
+        write_json(report, result)
     print(json.dumps(result, indent=2))
 
 

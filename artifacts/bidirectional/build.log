@@ -1,0 +1,11 @@
+X_reverse slice 0: 188 mechanisms, retained unconditional mass 0.99344
+X_reverse slice 1: 663 mechanisms, retained unconditional mass 0.98493
+X_reverse slice 2: 574 mechanisms, retained unconditional mass 0.99148
+X_reverse slice 3: 574 mechanisms, retained unconditional mass 0.99148
+X_reverse slice 4: 444 mechanisms, retained unconditional mass 0.99689
+Z_reverse slice 0: 321 mechanisms, retained unconditional mass 0.98858
+Z_reverse slice 1: 612 mechanisms, retained unconditional mass 0.98615
+Z_reverse slice 2: 574 mechanisms, retained unconditional mass 0.99148
+Z_reverse slice 3: 574 mechanisms, retained unconditional mass 0.99148
+Z_reverse slice 4: 366 mechanisms, retained unconditional mass 0.99712
+Built temporal_bidir_v1 in 26.4s with peak RSS 995.5 MiB

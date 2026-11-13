@@ -17,20 +17,23 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--output", type=Path)
     mode.add_argument("--verify", type=Path)
-    parser.add_argument("--candidate", choices=("parity_v1", "temporal_v1"), default="parity_v1")
+    parser.add_argument("--candidate", choices=("parity_v1", "temporal_v1", "temporal_bidir_v1"), default="parity_v1")
     parser.add_argument("--batch-size", type=int, default=None)
     args = parser.parse_args()
     output = args.output or args.verify
     sidecar = output.with_suffix(output.suffix + ".manifest.json")
     if args.output and any(path.exists() or path.is_symlink() for path in (output, sidecar)):
         raise FileExistsError("Choose a new output path")
-    if args.candidate == "temporal_v1":
-        import evaluate_temporal as candidate
+    if args.candidate.startswith("temporal_"):
+        import evaluate_temporal
+        checkpoint, evidence_folder = evaluate_temporal.locations(args.candidate)
+        report_path = evidence_folder / "validation.json"
+        decoder, provenance = evaluate_temporal.checkpoint_decoder(args.candidate)
     else:
-        candidate = evaluate_parity
-    report = json.loads(candidate.REPORT.read_text())
-    decoder, provenance = candidate.checkpoint_decoder()
-    checkpoint_hash = sha256(candidate.CHECKPOINT / "provenance.json")
+        checkpoint, report_path = evaluate_parity.CHECKPOINT, evaluate_parity.REPORT
+        decoder, provenance = evaluate_parity.checkpoint_decoder()
+    report = json.loads(report_path.read_text())
+    checkpoint_hash = sha256(checkpoint / "provenance.json")
     if not report["passed"] or report["checkpoint_provenance_sha256"] != checkpoint_hash:
         raise ValueError("This checkpoint has no passing frozen-validation report")
     original = json.loads((ROOT / "artifacts/stage01/original_files.json").read_text())
@@ -47,8 +50,8 @@ def main():
     for name, path in inputs.items():
         if sha256(path) != hashes[name]:
             raise ValueError(f"Submission input changed during prediction: {name}")
-    evidence = {"candidate": candidate.CANDIDATE, "input_sha256": hashes, "checkpoint_files": provenance["files"],
-                "checkpoint_provenance_sha256": checkpoint_hash, "validation_report_sha256": sha256(candidate.REPORT)}
+    evidence = {"candidate": args.candidate, "input_sha256": hashes, "checkpoint_files": provenance["files"],
+                "checkpoint_provenance_sha256": checkpoint_hash, "validation_report_sha256": sha256(report_path)}
     if args.verify:
         checked = validate_submission(output, data["id"], bits)
         manifest = json.loads(sidecar.read_text())

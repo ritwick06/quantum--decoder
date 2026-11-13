@@ -16,6 +16,48 @@ class TemporalTests(unittest.TestCase):
     def setUpClass(cls):
         cls.kernel = decoder.load_kernel(CHECKPOINT / "kernel.so")
 
+    def test_combination_uses_joint_mass_and_preserves_ambiguous_bits(self):
+        forward = np.array([[1, 0.5, 0.1, 0.02, -0.6], [0, 0, 0, 0, 0]])
+        reverse = np.array([[3, -1.5, -0.1, 0.06, 0.9], [0, 0, 0, 0, 0]])
+        np.testing.assert_array_equal(
+            decoder.logical_decisions(forward + reverse),
+            [[1, -1, -1, 0], [-1, -1, -1, -1]],
+        )
+
+    def test_bidirectional_checkpoint_keeps_forward_predictions_and_row_order(self):
+        path = CHECKPOINT.parent / "temporal_bidir_v1"
+        rng = np.random.default_rng(740)
+        events = rng.random((4101, 70)) < 0.13
+        for basis, circuit in load_circuits().items():
+            with patch.object(decoder, "HERE", CHECKPOINT):
+                decoder.load_model.cache_clear()
+                original = decoder.decode(circuit, events)
+            with patch.object(decoder, "HERE", path):
+                decoder.load_model.cache_clear()
+                try:
+                    kernel, fallback, models = decoder.load_model()
+                    forward, reverse = models[decoder.circuit_digest(circuit)]
+                    self.assertEqual(reverse[0], forward[0][::-1])
+                    np.testing.assert_array_equal(
+                        decoder.observed_slices(events, reverse[0]),
+                        decoder.observed_slices(events, forward[0])[:, ::-1],
+                    )
+                    masses = decoder._decode_temporal(events, forward, kernel, return_moments=True)
+                    one_direction = decoder.logical_decisions(masses)
+                    fallback_rows = (one_direction < 0).any(axis=1)
+                    one_direction[fallback_rows] = np.where(
+                        one_direction[fallback_rows] < 0, fallback(circuit, events[fallback_rows]),
+                        one_direction[fallback_rows],
+                    )
+                    np.testing.assert_array_equal(one_direction, original)
+                    whole = decoder.decode(circuit, events)
+                    split = np.concatenate([decoder.decode(circuit, events[:503]), decoder.decode(circuit, events[503:])])
+                    np.testing.assert_array_equal(whole, split)
+                    self.assertEqual(whole.dtype, np.uint8)
+                    self.assertTrue(np.isin(whole, (0, 1)).all(), basis)
+                finally:
+                    decoder.load_model.cache_clear()
+
     def test_tables_match_small_exhaustive_fault_model(self):
         incoming = (1, 2, 3, 0)
         outgoing = (2, 1, 3, 1)

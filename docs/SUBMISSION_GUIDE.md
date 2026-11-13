@@ -1,6 +1,8 @@
 # Submission artifact and manual upload guide
 
-**Current state:** the zero-baseline artifact is validated locally and has not been uploaded. Upload approval is not granted. The default plan reserves Kaggle submissions for a useful independently developed candidate.
+**Recommended for manual upload:** [temporal_bidir_v1.csv](../artifacts/submissions/temporal_bidir_v1.csv). Check the live team quota, then choose this single file in Kaggle's Submit Prediction interface. Use `temporal_bidir_v1` as the description so the result can be matched to the [submission ledger](../artifacts/submissions/ledger.json). The [manifest](../artifacts/submissions/temporal_bidir_v1.csv.manifest.json) records the verified hash and row order.
+
+The instructions below are the historical zero-baseline verification record. Keep that baseline local.
 
 ## Correct file and target
 

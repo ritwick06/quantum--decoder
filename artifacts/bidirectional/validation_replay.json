@@ -1,0 +1,8 @@
+{
+  "candidate": "temporal_bidir_v1",
+  "prediction_sha256": {
+    "X": "d8d3350884c69527d698a8bcf92a749edfe5d99f4befffdf1d67381d8276b98c",
+    "Z": "ba7108acb5780ef3b9bd6c43f184bd751cd56c109464e269cc0547be84601791"
+  },
+  "match": true
+}
