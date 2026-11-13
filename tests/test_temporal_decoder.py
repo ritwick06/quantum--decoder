@@ -11,6 +11,7 @@ import stim
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
 from temporal_decoder import readout
+from tools.bound_temporal import load_bound_kernel, load_subset_kernel
 from tools.build_temporal import ADAPTIVE, BACKWARD, CHECKPOINT, DEEP, EXPANDED, LOOKAHEAD, MIDPOINT, SUFFIX, assigned_slices, spectral_builder, xor_moments
 
 
@@ -18,6 +19,25 @@ class TemporalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.kernel = decoder.load_kernel(CHECKPOINT / "kernel.so")
+
+    def test_oracle_sign_norm_matches_exhaustive_hidden_faults(self):
+        # Both mechanisms flip the same detector, but only the first flips L0.
+        # The logical bit remains ambiguous even with the full detector parity.
+        tags = np.array([(1 << 18) | 1, 1 << 18], dtype=np.uint32)
+        probabilities = np.array([0.2, 0.3], dtype=np.float64)
+        signed = np.zeros((2, 4))
+        for a, b in itertools.product((0, 1), repeat=2):
+            weight = (0.2 if a else 0.8) * (0.3 if b else 0.7)
+            signed[a ^ b] += weight * np.array([1 - 2 * a, 1, 1, 1])
+        with tempfile.TemporaryDirectory() as temp:
+            for loader, tolerance in ((load_bound_kernel, 1e-13), (load_subset_kernel, 2.1e-8)):
+                with self.subTest(method=loader.__name__):
+                    actual = np.empty(4, dtype=np.float64)
+                    oracle = loader(Path(temp))
+                    status = oracle(tags.ctypes.data, probabilities.ctypes.data, len(tags), 1, 0,
+                                    actual.ctypes.data)
+                    self.assertEqual(status, 0)
+                    np.testing.assert_allclose(actual, np.abs(signed).sum(axis=0), rtol=0, atol=tolerance)
 
     def test_combination_uses_joint_mass_and_preserves_ambiguous_bits(self):
         forward = np.array([[1, 0.5, 0.1, 0.02, -0.6], [0, 0, 0, 0, 0]])

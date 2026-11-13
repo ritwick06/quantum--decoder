@@ -177,3 +177,33 @@ extern "C" int temporal_build_lookahead(const std::uint32_t* tags, const double*
         return 1;
     }
 }
+
+// Sum the absolute joint signed masses for each logical bit. This is the
+// average posterior sign magnitude for a decoder given the full local parity.
+extern "C" int temporal_oracle_signs(const std::uint32_t* tags, const double* p, int count,
+                                     unsigned in_bits, unsigned out_bits, double* result) {
+    if (count < 0 || in_bits > 14 || out_bits > 14) return 2;
+    for (int i = 0; i < count; ++i) {
+        if (!(p[i] >= 0 && p[i] < 0.5)
+            || (tags[i] >> (tag_out_bits + 4)) >= (1u << in_bits)
+            || ((tags[i] >> 4) & tag_out_mask) >= (1u << out_bits)) return 2;
+    }
+    try {
+        std::vector<double> work(std::size_t(1) << (in_bits + out_bits));
+        for (unsigned channel = 1; channel < channels; ++channel) {
+            distribution(work, tags, p, count, out_bits, channel);
+            double sum = 0;
+            double remainder = 0;
+            for (const auto value : work) {
+                const double term = std::abs(value) - remainder;
+                const double updated = sum + term;
+                remainder = (updated - sum) - term;
+                sum = updated;
+            }
+            result[channel - 1] = std::min(1.0, sum);
+        }
+        return 0;
+    } catch (...) {
+        return 1;
+    }
+}

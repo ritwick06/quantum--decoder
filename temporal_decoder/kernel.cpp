@@ -46,6 +46,11 @@ struct BackwardIndex {
     const std::uint16_t* residuals;
 };
 
+struct BlockSubset {
+    std::uint32_t tag;
+    double mass;
+};
+
 bool earlier(const RankedLink& left, const RankedLink& right) {
     if (left.score != right.score) return left.score > right.score;
     return left.boundary < right.boundary;
@@ -116,6 +121,68 @@ extern "C" int temporal_build_width(const std::uint32_t* tags, const double* odd
 extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int count,
                               int in_size, Edge* output) {
     return temporal_build_width(tags, odds, count, in_size, output, fanout);
+}
+
+// Each parity contributes the smaller of the two joint logical masses.
+// Omitting fault subsets can only reduce that contribution.
+extern "C" int temporal_block_minorities(const std::uint32_t* tags, const double* probabilities,
+                                          int count, unsigned in_bits, double* output) {
+    if (count < 0 || in_bits > 14) return 2;
+    const unsigned rows = 1u << in_bits;
+    for (int i = 0; i < count; ++i) {
+        if (!(probabilities[i] >= 0 && probabilities[i] < 0.5)
+            || (tags[i] >> (out_bits + 4)) >= rows) return 2;
+    }
+    try {
+        std::vector<std::vector<BlockSubset>> subsets(rows);
+        std::vector<double> odds(count);
+        double no_fault = 1;
+        for (int i = 0; i < count; ++i) {
+            no_fault *= 1 - probabilities[i];
+            odds[i] = probabilities[i] / (1 - probabilities[i]);
+        }
+        const auto append = [&](std::uint32_t tag, double mass) {
+            subsets[tag >> (out_bits + 4)].push_back({tag & ((out_mask << 4) | 15u), mass});
+        };
+        append(0, no_fault);
+        for (int i = 0; i < count; ++i) {
+            const auto single = no_fault * odds[i];
+            append(tags[i], single);
+            for (int j = i + 1; j < count; ++j) {
+                const auto pair = tags[i] ^ tags[j];
+                const auto weight = single * odds[j];
+                append(pair, weight);
+                for (int k = j + 1; k < count; ++k) append(pair ^ tags[k], weight * odds[k]);
+            }
+        }
+        std::fill(output, output + 4, 0.0);
+        std::vector<std::array<double, 16>> logical(1u << out_bits);
+        std::vector<unsigned> touched;
+        for (const auto& row : subsets) {
+            for (const auto& subset : row) {
+                const auto parity = subset.tag >> 4;
+                logical[parity][subset.tag & 15u] += subset.mass;
+                touched.push_back(parity);
+            }
+            std::sort(touched.begin(), touched.end());
+            const auto end = std::unique(touched.begin(), touched.end());
+            for (auto it = touched.begin(); it != end; ++it) {
+                auto& masses = logical[*it];
+                for (unsigned bit = 0; bit < 4; ++bit) {
+                    double zero = 0, one = 0;
+                    for (unsigned value = 0; value < 16; ++value) {
+                        (value & (1u << bit) ? one : zero) += masses[value];
+                    }
+                    output[bit] += std::min(zero, one);
+                }
+                masses = {};
+            }
+            touched.clear();
+        }
+        return 0;
+    } catch (...) {
+        return 1;
+    }
 }
 
 namespace {

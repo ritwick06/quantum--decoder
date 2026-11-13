@@ -129,3 +129,7 @@ On 14 November the user reported PHANTOMS OF QUANTUM at #15 with a public score 
 ## Stage 04 readout using both search widths
 
 The frozen LER was 0.03392000 (X 0.03455250, Z 0.03328750), compared with 0.03392625 for `temporal_expanded_v1`. The gain was five net bit errors and the paired 95% interval included zero. The five-run median was 13.03 seconds. The best verified local save remains `temporal_expanded_v1`. [Dual search readout experiment](DUAL_SEARCH_READOUT_EXPERIMENT.md)
+
+## Expected LER bound
+
+Giving an ideal decoder the separate detector parities of independent circuit fault blocks yielded a lower bound of 0.02258406 for detector-only expected LER. A conservative interior enumeration and exact boundary calculation independently gives 0.02107331. Both exceed the 0.02000 target. These are properties of the supplied circuit model, independent of the finite Kaggle leaderboard sample. [Derivation and results](DECODING_LOWER_BOUND.md)
