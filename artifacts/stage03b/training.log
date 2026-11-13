@@ -1,0 +1,9 @@
+X0: 4 Newton steps, gradient 5.69e-11
+X1: 4 Newton steps, gradient 4.14e-11
+X2: 4 Newton steps, gradient 1.26e-08
+X3: 4 Newton steps, gradient 3.25e-10
+Z0: 4 Newton steps, gradient 4.5e-10
+Z1: 4 Newton steps, gradient 4.14e-11
+Z2: 4 Newton steps, gradient 1.37e-08
+Z3: 4 Newton steps, gradient 8.08e-09
+Frozen checkpoint /home/ritwick06/q_decoder/artifacts/checkpoints/parity_v1: 15.135 s, peak RSS 246.0 MiB

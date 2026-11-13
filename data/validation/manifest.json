@@ -1,0 +1,61 @@
+{
+  "purpose": "frozen independent validation; never training",
+  "stim_version": "1.16.0",
+  "shots_per_basis": 100000,
+  "sample_calls_per_basis": 1,
+  "separate_observables": true,
+  "bases": {
+    "X": {
+      "seed": 2026111301,
+      "circuit_sha256": "69d15cce609f60a7b45af88ec0a6f52b47d1fc5f08f39785fa18f50f1e47e5db",
+      "arrays": {
+        "detectors": {
+          "file": "X_detectors.npy",
+          "sha256": "3bb5e742f7a2c309451a8fce0293623b38947c1a4ffdadb4f8fd672714611214",
+          "array_sha256": "bfca4ed2b3f02be0f71e7409cf812d652910270b08ecd0db2ba056ec2599fc03",
+          "shape": [
+            100000,
+            70
+          ],
+          "dtype": "bool"
+        },
+        "observables": {
+          "file": "X_observables.npy",
+          "sha256": "50215d1309e6e99fa8205a0eee78da754ab4959a6b53c11235a161ad62d3bc21",
+          "array_sha256": "988ea89df0b30422271c63c4791dbfb68d2eb3b0d3122caadfd82f64d17cd679",
+          "shape": [
+            100000,
+            4
+          ],
+          "dtype": "bool"
+        }
+      }
+    },
+    "Z": {
+      "seed": 2026111302,
+      "circuit_sha256": "2f20016bcc3d66bfdfae5a03685806f2355d6d2a4100a131e7a6999f672bc282",
+      "arrays": {
+        "detectors": {
+          "file": "Z_detectors.npy",
+          "sha256": "f4de1ec9ed6b327b6ce74b5d8e5900447aee3af5c7cf44950ac94ebf82e491b7",
+          "array_sha256": "f652c544c717ccb5818d33e859e6e2158ad5fe6c9030b63c4d2932c27b8bc014",
+          "shape": [
+            100000,
+            70
+          ],
+          "dtype": "bool"
+        },
+        "observables": {
+          "file": "Z_observables.npy",
+          "sha256": "1b0122398902d8f42b447b6235d8df671b24d4aac8d3f6f78ba383f4e33ad129",
+          "array_sha256": "790e7f01a9af03327be456044d01ec7127c3c768b7aa0069bb4ffe24779abed1",
+          "shape": [
+            100000,
+            4
+          ],
+          "dtype": "bool"
+        }
+      }
+    }
+  }
+}

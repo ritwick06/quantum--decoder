@@ -1,0 +1,13 @@
+loading data/adapters/train/train.csv ...
+data/adapters/train X: 100000 shots
+data/adapters/train Z: 100000 shots
+run 1: 0.01 s
+run 2: 0.00 s
+run 3: 0.00 s
+run 4: 0.00 s
+run 5: 0.00 s
+runtime (median of 5): 0.00 s
+wrote artifacts/baseline/train_predictions.csv
+X: LER 0.29125
+Z: LER 0.28504
+both: LER 0.28815

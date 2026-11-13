@@ -1,0 +1,15 @@
+test_batch_independence_and_empty_wrapper (test_stage01.Stage01Tests.test_batch_independence_and_empty_wrapper) ... ok
+test_csv_schema_and_dataset_separation (test_stage01.Stage01Tests.test_csv_schema_and_dataset_separation) ... ok
+test_fresh_process_predictions (test_stage01.Stage01Tests.test_fresh_process_predictions) ... ok
+test_frozen_validation_contract (test_stage01.Stage01Tests.test_frozen_validation_contract) ... ok
+test_frozen_validation_replays_with_recorded_seeds (test_stage01.Stage01Tests.test_frozen_validation_replays_with_recorded_seeds) ... ok
+test_invalid_inputs_and_outputs (test_stage01.Stage01Tests.test_invalid_inputs_and_outputs) ... ok
+test_metric_counts_bits_not_failed_shots (test_stage01.Stage01Tests.test_metric_counts_bits_not_failed_shots) ... ok
+test_official_source_is_unmodified (test_stage01.Stage01Tests.test_official_source_is_unmodified) ... ok
+test_routing_and_order_with_distinguishable_outputs (test_stage01.Stage01Tests.test_routing_and_order_with_distinguishable_outputs) ... ok
+test_zero_baseline_contract_both_bases (test_stage01.Stage01Tests.test_zero_baseline_contract_both_bases) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.478s
+
+OK

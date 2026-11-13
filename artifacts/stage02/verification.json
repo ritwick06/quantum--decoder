@@ -1,0 +1,15 @@
+{
+  "stage": "02",
+  "status": "complete",
+  "artifact": "artifacts/submissions/zero_baseline_v1.csv",
+  "artifact_sha256": "f4ff37522e28e9c0330f98dce64d32cdcc942060619efb8fffa83f5a4fd26eeb",
+  "validated_rows": 200000,
+  "protected_files_unchanged": 75,
+  "checkpoint_files_verified": 3,
+  "tests_passed": 19,
+  "test_seconds": 1.284,
+  "fresh_process_reproduction_byte_identical": true,
+  "uploads_performed": 0,
+  "team_quota_remaining": null,
+  "next_stage": "03A: independent decoder design review"
+}

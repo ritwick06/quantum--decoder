@@ -1,0 +1,55 @@
+{
+  "candidate": "zero_baseline_v1",
+  "status": "validated locally; not uploaded",
+  "created_ist": "2026-11-13T20:38:38.699344+05:30",
+  "artifact": "artifacts/submissions/zero_baseline_v1.csv",
+  "validation": {
+    "rows": 200000,
+    "columns": [
+      "id",
+      "L0",
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "sha256": "f4ff37522e28e9c0330f98dce64d32cdcc942060619efb8fffa83f5a4fd26eeb",
+    "id_order_matches": true,
+    "binary": true,
+    "duplicate_ids": 0,
+    "encoding": "UTF-8"
+  },
+  "input_sha256": {
+    "test.csv": "5c81111d9d1c800f459a34352b2aa498671de602486ce0e94204b1a4d6f3a480",
+    "sample_submission.csv": "f4ff37522e28e9c0330f98dce64d32cdcc942060619efb8fffa83f5a4fd26eeb",
+    "X_circuit.stim": "69d15cce609f60a7b45af88ec0a6f52b47d1fc5f08f39785fa18f50f1e47e5db",
+    "Z_circuit.stim": "2f20016bcc3d66bfdfae5a03685806f2355d6d2a4100a131e7a6999f672bc282"
+  },
+  "checkpoint": {
+    "candidate": "zero_baseline_v1",
+    "source_revision": "739d627b20fdb4899ab7487723d2e4fccec27033",
+    "description": "Unchanged organizer zero decoder; interface baseline, not an original decoder contribution",
+    "trained_assets": [],
+    "files": {
+      "decoder.py": "ce6fca5f3ed4d0a9f1b5115b889d410bb1d96780a4a9b76a4a17a5f002e158a8",
+      "requirements.txt": "22e7e6ec1270eed62091d2d8245645a21e22399f90dd3c70dd122fd2dd2a9f96",
+      "LICENSE": "3787a09a218eeada3e966d96b9471343fe5b3b0f448193abf7de6207b884de66"
+    }
+  },
+  "python": "3.13.18",
+  "packages": {
+    "stim": "1.16.0",
+    "numpy": "2.2.6"
+  },
+  "basis_counts": {
+    "X": 100000,
+    "Z": 100000
+  },
+  "batch_size": null,
+  "repeat_predictions_equal": true,
+  "generation_seconds": 0.31396250399848213,
+  "timing_note": "One local pipeline pass including routing and validation; not a competition speed benchmark",
+  "prior_local_validation_ler": 0.28790125,
+  "kaggle_score": null,
+  "uploaded": false,
+  "rules_evidence": "User-supplied Kaggle rules; live Rules/Data pages inaccessible at Stage 02 recheck"
+}

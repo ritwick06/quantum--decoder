@@ -1,0 +1,14 @@
+# Stage 03A: Design an independent decoder before coding
+
+Read `AGENTS.md`, `docs/COMPETITION_RULES.md`, `docs/ORIGINALITY_POLICY.md`, the latest `docs/RULES_AUDIT.md`, and the local experiment log. Do not start implementation during this stage. The simple baseline/submission should already exist.
+
+MISSION: The hackathon decoder must be our team's own solution. Avoid off-the-shelf QEC decoders, copied pseudocode, stock algorithm clones and rebranded standard methods. Use first-principles reasoning from the detector traces and official circuit metadata. Do not claim research novelty that has not been proven.
+
+1. Examine only labelled development data and the allowed circuit APIs. Summarize detector sparsity, time correlations, X/Z differences, the distribution of logical outcomes and the main ambiguity problems. State what is observed versus inferred.
+2. Propose THREE independent, distinct and technically concrete decoder concepts, each specially tailored to the 70 detector measurements and four logical observable predictions. Each must include its own feature construction, mathematical decision rule or concise pseudocode, time/memory estimate, reliability risks and expected failure modes. Avoid simply saying "train an MLP", "use BP", "use OSD", "use matching", or "use kNN/LUT" as the novel proposal. Existing simple methods may remain benchmarks or subcomponents where permitted.
+3. As inspiration to investigate, NOT predetermined solutions: exploit temporal detector transitions; design circuit-derived but independently selected fault signatures; make a custom uncertainty-aware gating mechanism between a sparse-event branch and a dense-event branch; or learn your own compact reliability scoring function. These examples may themselves be known in the literature. Document which precise part is independently reasoned, not presumed globally novel.
+4. Select ONE minimal feasible candidate based on expected local validation gains and implementation risk under the remaining time. Produce a small module outline, exact input/output contract, failure handling, deterministic behavior, and a bounded implementation/test budget.
+5. Define an untouched frozen validation set, LER and time thresholds, comparator baseline, and an automatic promotion/revert decision. No leaderboard hacking or tuning per hidden test row.
+6. Write `docs/DESIGN_DECISIONS.md`, identifying conceptual sources with links, distinguishing existing principles from our specific independently designed features and inference logic. Explicitly flag similarities to known decoder families. Record no unverified claims of first-in-world novelty.
+
+OUTPUT: a clear design decision document and an approval request. No decoder source changes, training, large experiments, Kaggle submission or next stage. STOP and WAIT.

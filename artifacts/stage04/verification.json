@@ -1,0 +1,10 @@
+{
+  "stage": "04",
+  "candidate": "temporal_v1",
+  "passed": true,
+  "tests_passed": 29,
+  "validated_rows": 200000,
+  "csv_sha256": "fb40cf76ffd12784c0f8ddce299c692b896c7a839106030e6c4dd8baa66b0433",
+  "fresh_process_validation_match": true,
+  "fresh_process_csv_byte_identical": true
+}

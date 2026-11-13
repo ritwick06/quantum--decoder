@@ -1,0 +1,64 @@
+{
+  "candidate": "temporal_v1",
+  "checkpoint_provenance_sha256": "495b701d217bdcac1fc6d7c76cde86823665ff747c479e393af371e0ff3dbb33",
+  "validation_manifest_sha256": "4a8df2e10c37df7119d962399ce25f325306ff0c33c48e5ad37adb66c6a090cb",
+  "incumbent": "parity_v1",
+  "incumbent_ler": {
+    "X": 0.2736025,
+    "Z": 0.261595
+  },
+  "incumbent_combined_ler": 0.26759875,
+  "ler": {
+    "X": 0.035805,
+    "Z": 0.0341975
+  },
+  "combined_ler": 0.03500125,
+  "errors": {
+    "X": 14322,
+    "Z": 13679
+  },
+  "paired_gain": 0.2325975,
+  "paired_gain_ci95": [
+    0.23133239527489102,
+    0.233862604725109
+  ],
+  "dense": {
+    "X": {
+      "shots": 54718,
+      "incumbent_errors": 79750,
+      "candidate_errors": 12382
+    },
+    "Z": {
+      "shots": 53748,
+      "incumbent_errors": 76667,
+      "candidate_errors": 11853
+    }
+  },
+  "dense_gain": 0.30466229048734167,
+  "runs_seconds": [
+    4.110496684006648,
+    3.5420772030047374,
+    3.970820256996376,
+    4.196114156002295,
+    4.2611581289966125
+  ],
+  "median_seconds": 4.110496684006648,
+  "peak_rss_bytes": 232316928,
+  "penalized_ler_local_sensitivity": 0.03500125,
+  "prediction_sha256": {
+    "X": "1aa8c06f9c349c9c1394267946f591cf12d45035f0d0e7a239c353f8866a496a",
+    "Z": "1c9adfbf5bd63202bd46cf2ee6e737c488dd3a87864bdc728c469dcb65b05f3c"
+  },
+  "tests_passed": 29,
+  "gates": {
+    "ler_gain": true,
+    "dense_ler_gain": true,
+    "both_bases": true,
+    "paired_interval": true,
+    "runtime": true,
+    "peak_rss": true,
+    "penalized_ler_sensitivity": true,
+    "build_resources": true
+  },
+  "passed": true
+}

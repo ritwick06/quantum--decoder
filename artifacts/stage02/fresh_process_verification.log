@@ -1,0 +1,19 @@
+{
+  "mode": "verified",
+  "candidate": "zero_baseline_v1",
+  "fresh_predictions_match": true,
+  "batch_size": 4096,
+  "rows": 200000,
+  "columns": [
+    "id",
+    "L0",
+    "L1",
+    "L2",
+    "L3"
+  ],
+  "sha256": "f4ff37522e28e9c0330f98dce64d32cdcc942060619efb8fffa83f5a4fd26eeb",
+  "id_order_matches": true,
+  "binary": true,
+  "duplicate_ids": 0,
+  "encoding": "UTF-8"
+}

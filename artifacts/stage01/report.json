@@ -1,0 +1,185 @@
+{
+  "stage": "01",
+  "candidate": "organizer all-zero baseline (not an original decoder contribution)",
+  "timestamp_ist": "2026-11-13T20:25:02.170192+05:30",
+  "source_revision": "739d627b20fdb4899ab7487723d2e4fccec27033",
+  "environment": {
+    "python": "3.13.18",
+    "platform": "Linux-7.2.15-200.fc44.x86_64-x86_64-with-glibc2.43",
+    "machine": "x86_64",
+    "logical_cpus": 8,
+    "packages": {
+      "stim": "1.16.0",
+      "numpy": "2.2.6"
+    },
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "NUMBA_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    }
+  },
+  "circuits": {
+    "X": {
+      "detectors": 70,
+      "observables": 4,
+      "qubits": 32,
+      "H_shape": [
+        70,
+        2470
+      ],
+      "L_shape": [
+        4,
+        2470
+      ],
+      "mechanisms": 2470,
+      "p_min": 0.00013345794395852595,
+      "p_max": 0.02323854691198209,
+      "detectors_per_time": {
+        "0": 7,
+        "1": 14,
+        "2": 14,
+        "3": 14,
+        "4": 14,
+        "5": 7
+      },
+      "circuit_sha256": "69d15cce609f60a7b45af88ec0a6f52b47d1fc5f08f39785fa18f50f1e47e5db",
+      "canonical_circuit_sha256": "dc6d415ae3f0b5396a7f63ba1047f024be8ce7e44b03ace65348bcee78b3c070"
+    },
+    "Z": {
+      "detectors": 70,
+      "observables": 4,
+      "qubits": 32,
+      "H_shape": [
+        70,
+        2465
+      ],
+      "L_shape": [
+        4,
+        2465
+      ],
+      "mechanisms": 2465,
+      "p_min": 0.00013345794395852595,
+      "p_max": 0.023238546911982086,
+      "detectors_per_time": {
+        "0": 7,
+        "1": 14,
+        "2": 14,
+        "3": 14,
+        "4": 14,
+        "5": 7
+      },
+      "circuit_sha256": "2f20016bcc3d66bfdfae5a03685806f2355d6d2a4100a131e7a6999f672bc282",
+      "canonical_circuit_sha256": "36a24a0347bbb82362af28d816d790d5ee1cb1543fef2e9af7ada70536bf9968"
+    }
+  },
+  "datasets": {
+    "train": {
+      "rows": 200000,
+      "basis_counts": {
+        "X": 100000,
+        "Z": 100000
+      },
+      "labelled": true,
+      "sha256": "8f17ab7f4867b7f5fa46094995b0a898f53796cde9f590617a48bce3b4abded4"
+    },
+    "test": {
+      "rows": 200000,
+      "basis_counts": {
+        "X": 100000,
+        "Z": 100000
+      },
+      "labelled": false,
+      "sha256": "5c81111d9d1c800f459a34352b2aa498671de602486ce0e94204b1a4d6f3a480"
+    }
+  },
+  "split": {
+    "method": "SHA256('qec-stage00-v1:' + id), first 8 bytes big-endian modulo 5 equals 0",
+    "counts": {
+      "X": {
+        "reserved": 19870,
+        "development": 80130
+      },
+      "Z": {
+        "reserved": 19879,
+        "development": 80121
+      }
+    },
+    "train_sha256": "8f17ab7f4867b7f5fa46094995b0a898f53796cde9f590617a48bce3b4abded4",
+    "mask_sha256": "15b03cc4b3c27abed9f364e4d1d64130aa7e86a909004cd2790303a45a738b94"
+  },
+  "training": {
+    "runs_seconds": [
+      0.004620573003194295,
+      0.0045375780027825385,
+      0.005009962995245587,
+      0.003057225992961321,
+      0.002879264000512194
+    ],
+    "median_seconds": 0.0045375780027825385,
+    "deterministic": true,
+    "shots": {
+      "X": 100000,
+      "Z": 100000
+    },
+    "errors": {
+      "X": 116502,
+      "Z": 114015
+    },
+    "ler": {
+      "X": 0.291255,
+      "Z": 0.2850375
+    },
+    "combined_ler": 0.28814625,
+    "prediction_sha256": {
+      "X": "946cc2661d32ad837bd22fb051ee47ed6012e33a6db1617870fec60691ed7f09",
+      "Z": "946cc2661d32ad837bd22fb051ee47ed6012e33a6db1617870fec60691ed7f09"
+    }
+  },
+  "validation": {
+    "runs_seconds": [
+      0.003881272998114582,
+      0.0032399199990322813,
+      0.0029508450024877675,
+      0.003929771002731286,
+      0.0034727699967334047
+    ],
+    "median_seconds": 0.0034727699967334047,
+    "deterministic": true,
+    "shots": {
+      "X": 100000,
+      "Z": 100000
+    },
+    "errors": {
+      "X": 116944,
+      "Z": 113377
+    },
+    "ler": {
+      "X": 0.29236,
+      "Z": 0.2834425
+    },
+    "combined_ler": 0.28790125,
+    "prediction_sha256": {
+      "X": "946cc2661d32ad837bd22fb051ee47ed6012e33a6db1617870fec60691ed7f09",
+      "Z": "946cc2661d32ad837bd22fb051ee47ed6012e33a6db1617870fec60691ed7f09"
+    }
+  },
+  "validation_manifest_sha256": "4a8df2e10c37df7119d962399ce25f325306ff0c33c48e5ad37adb66c6a090cb",
+  "organizer_command": [
+    "/home/ritwick06/q_decoder/.venv/bin/python",
+    "organizer/submission_template/run_local.py",
+    "--problem-set",
+    "data/adapters/train",
+    "--decoder",
+    "organizer/submission_template",
+    "--runs",
+    "5",
+    "--threads",
+    "1",
+    "--out",
+    "artifacts/baseline/train_predictions.csv"
+  ],
+  "training_predictions_sha256": "f4ff37522e28e9c0330f98dce64d32cdcc942060619efb8fffa83f5a4fd26eeb",
+  "timing_note": "Local CPU, one thread; includes the organizer output-check overhead, excludes import, CSV I/O and LER computation. Not organizer-hardware timing.",
+  "kaggle_submissions": 0
+}

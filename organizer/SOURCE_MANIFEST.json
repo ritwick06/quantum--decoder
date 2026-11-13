@@ -1,0 +1,150 @@
+{
+  "repository": "JuliusRye/QEC_Decoder_Hakathon_2026",
+  "revision": "739d627b20fdb4899ab7487723d2e4fccec27033",
+  "files": {
+    ".python-version": {
+      "git_blob": "24ee5b1be9961e38a503c8e764b7385dbb6ba124",
+      "sha256": "02e735b3dfe1c32833eb550b7ff8ffa17f5f2bc3fa1e7bae61a8f5a3883ce398",
+      "bytes": 5,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/.python-version"
+    },
+    "LICENSE": {
+      "git_blob": "a52052b25bae4ec0ffba5703ec1d840c88f6242b",
+      "sha256": "3787a09a218eeada3e966d96b9471343fe5b3b0f448193abf7de6207b884de66",
+      "bytes": 1251,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/LICENSE"
+    },
+    "README.md": {
+      "git_blob": "854753b998275a0b03b41438ec750fc4643333fb",
+      "sha256": "7c131215f5d25890a68138b46331b917bcc9278c4eb302b808f747f32377f0d5",
+      "bytes": 26354,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/README.md"
+    },
+    "notebooks/getting_started.ipynb": {
+      "git_blob": "b6177342290c95b924005a5d0a4ccf61a7597412",
+      "sha256": "0a5bfdb19b3b86c3f058f225e56af62efd4b05d5f8ed897c9b60ef9ac5189e5b",
+      "bytes": 9161,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/notebooks/getting_started.ipynb"
+    },
+    "pyproject.toml": {
+      "git_blob": "28c339ff38552a41199d0698fb5225c56c28f5f3",
+      "sha256": "19ff9536b7c9a894003feb5b3ce2fbcb5868b773a6b2538ff67c25a13bae258e",
+      "bytes": 719,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/pyproject.toml"
+    },
+    "src/hackathon_2026/__init__.py": {
+      "git_blob": "720375d67fdabb76075e7b3220af64436082af74",
+      "sha256": "24c48b00b44c1c155f93f1766e2732ae7293cd93298480ff099bc688851fade4",
+      "bytes": 497,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/__init__.py"
+    },
+    "src/hackathon_2026/calculate_score.py": {
+      "git_blob": "96aa91a81467a288937377b558334b9aee0c6ac0",
+      "sha256": "489ca24dddc1251ca68143312b3c118c7746526c8d73cd389cc20aeccb47815a",
+      "bytes": 1718,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/calculate_score.py"
+    },
+    "src/hackathon_2026/circuit_construction.py": {
+      "git_blob": "b1baff5591abb381ea46a2e855d6de91e8a2acf4",
+      "sha256": "0d7716b9b87f659c7a2beeaad7004f343996ee7c8e0a8dde2fd4e5b510430234",
+      "bytes": 2821,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/circuit_construction.py"
+    },
+    "src/hackathon_2026/circuit_noise.py": {
+      "git_blob": "627bcae5f4a1635214eae8e197042381463b15e6",
+      "sha256": "5c78b95dd442841ac0e404c1308eb628f6491be90cab8f4a586443c4d2c16ead",
+      "bytes": 3526,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/circuit_noise.py"
+    },
+    "src/hackathon_2026/circuit_tools.py": {
+      "git_blob": "e19d0e042304c8ca26404e8fbdead2a5fee514ce",
+      "sha256": "8ba162806038bd93369bbfd7dd7e5e96e5887cf15968dc6a020b62c68ed1cebb",
+      "bytes": 2608,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/circuit_tools.py"
+    },
+    "src/hackathon_2026/data/coord_18_4_4.stim": {
+      "git_blob": "b0ed5f3c950e6f693d2af934844ccf714a21a5ad",
+      "sha256": "4bd99c91019f03cddd72dff1efcc369c2500f1d3cfc690de6b2fe1dfce8e9071",
+      "bytes": 694,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/coord_18_4_4.stim"
+    },
+    "src/hackathon_2026/data/det_init_x.stim": {
+      "git_blob": "83ac5699540a3fa18379882038879494f132b7b1",
+      "sha256": "f612e6f808a5885de9404330d291292d97591b3be5451486689f66b583e2a1f4",
+      "bytes": 187,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/det_init_x.stim"
+    },
+    "src/hackathon_2026/data/det_init_z.stim": {
+      "git_blob": "da77efa098f1af6e2ded5173d04c554fddcfaabe",
+      "sha256": "16774903d56125f91ff049f6ddd5a15b0c9f1734102af12b053207659a86e1c8",
+      "bytes": 182,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/det_init_z.stim"
+    },
+    "src/hackathon_2026/data/det_meas_x.stim": {
+      "git_blob": "11d95e906811da69406c8aa09f795ac123987224",
+      "sha256": "ea07b8b72192daf60a0ee3897230fde9deed446dfae10f9720ff9dc884fb9dd6",
+      "bytes": 546,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/det_meas_x.stim"
+    },
+    "src/hackathon_2026/data/det_meas_z.stim": {
+      "git_blob": "f433b4042bf15b89134494f6cd423c5145f64c49",
+      "sha256": "0208e6584cef45739851878891921ccca3fd79b39f27440d5a54c116c10ea72d",
+      "bytes": 546,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/det_meas_z.stim"
+    },
+    "src/hackathon_2026/data/det_round.stim": {
+      "git_blob": "9d134ebcf1d9d868ef27fbf827a6b19651cdd5c0",
+      "sha256": "acaee406bf8d74ef7003893f124feacf2a16a7d3df9350a2df5d1a42c90dfeaf",
+      "bytes": 495,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/det_round.stim"
+    },
+    "src/hackathon_2026/data/metadata_18_4_4.json": {
+      "git_blob": "ca2bfb8b1699ee0db78bd50b47547080f95717e8",
+      "sha256": "1462f0e5ee8d4a185a87ef759d23666eda12fcc87dccbd21a969e23e2946ad97",
+      "bytes": 3544,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/metadata_18_4_4.json"
+    },
+    "src/hackathon_2026/data/observable_x.stim": {
+      "git_blob": "ca2b2ad1e8a11ce1065154f2ebc77026abc4ec83",
+      "sha256": "51d06eb31f04183e1f3a2e5af4c62eaf71c64825ad88e3cb59c4228b4ad92879",
+      "bytes": 284,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/observable_x.stim"
+    },
+    "src/hackathon_2026/data/observable_z.stim": {
+      "git_blob": "47da24918f4cdbf73d42db3ab3cd6e6691076336",
+      "sha256": "948d288ff848fe2d1f38ce0dcd8cea39f8e065890f5a637a1e2aac6418505570",
+      "bytes": 265,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/observable_z.stim"
+    },
+    "src/hackathon_2026/data/syndrome_18_4_4.stim": {
+      "git_blob": "6f625a680cab6cbf3e0995b056743553301b06e4",
+      "sha256": "5bc868fb49c1c18cb3f8e98fe7a45df3939878d0a1bb124ead752e168f8fe217",
+      "bytes": 1460,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/data/syndrome_18_4_4.stim"
+    },
+    "src/hackathon_2026/save_load.py": {
+      "git_blob": "bff14a8a1c0124caf4bac901826cb143652b03c7",
+      "sha256": "c83e44654048441d10a411c22d147d28028f451fcc05600f8a63deb380fa3b61",
+      "bytes": 2551,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/src/hackathon_2026/save_load.py"
+    },
+    "submission_template/decoder.py": {
+      "git_blob": "5eb7ab0f59ada2494746e84a9a12855983c251d7",
+      "sha256": "ce6fca5f3ed4d0a9f1b5115b889d410bb1d96780a4a9b76a4a17a5f002e158a8",
+      "bytes": 1035,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/submission_template/decoder.py"
+    },
+    "submission_template/requirements.txt": {
+      "git_blob": "9707a38476bbed1f6ce70e5fc99d77f1c2742668",
+      "sha256": "a1d18933de0ff3d42660cd56cf81fd26600d48b625b41621a32ef6d38122df4c",
+      "bytes": 127,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/submission_template/requirements.txt"
+    },
+    "submission_template/run_local.py": {
+      "git_blob": "04662ed5339aab2c62c315131ab1bf8066ebf42f",
+      "sha256": "8e0a29b56fca0018412c1cbfe10c256de6ff3bd5d3403a3d0b757bdc12b9e5b2",
+      "bytes": 5163,
+      "url": "https://raw.githubusercontent.com/JuliusRye/QEC_Decoder_Hakathon_2026/739d627b20fdb4899ab7487723d2e4fccec27033/submission_template/run_local.py"
+    }
+  }
+}

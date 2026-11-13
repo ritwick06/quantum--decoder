@@ -1,0 +1,11 @@
+{
+  "candidate": "zero_baseline_v1",
+  "source_revision": "739d627b20fdb4899ab7487723d2e4fccec27033",
+  "description": "Unchanged organizer zero decoder; interface baseline, not an original decoder contribution",
+  "trained_assets": [],
+  "files": {
+    "decoder.py": "ce6fca5f3ed4d0a9f1b5115b889d410bb1d96780a4a9b76a4a17a5f002e158a8",
+    "requirements.txt": "22e7e6ec1270eed62091d2d8245645a21e22399f90dd3c70dd122fd2dd2a9f96",
+    "LICENSE": "3787a09a218eeada3e966d96b9471343fe5b3b0f448193abf7de6207b884de66"
+  }
+}

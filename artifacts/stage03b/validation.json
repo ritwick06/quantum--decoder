@@ -1,0 +1,61 @@
+{
+  "candidate": "parity_v1",
+  "checkpoint_provenance_sha256": "488cb584f026ac7b91a363717d72c41c2212c259672d990a393e63ee0c26db3d",
+  "validation_manifest_sha256": "4a8df2e10c37df7119d962399ce25f325306ff0c33c48e5ad37adb66c6a090cb",
+  "zero_ler": {
+    "X": 0.29236,
+    "Z": 0.2834425
+  },
+  "zero_combined_ler": 0.28790125,
+  "shots": {
+    "X": 100000,
+    "Z": 100000
+  },
+  "errors": {
+    "X": 109441,
+    "Z": 104638
+  },
+  "ler": {
+    "X": 0.2736025,
+    "Z": 0.261595
+  },
+  "combined_ler": 0.26759875,
+  "paired_gain": 0.0203025,
+  "paired_gain_ci95": [
+    0.019366402983570407,
+    0.021238597016429595
+  ],
+  "runs_seconds": [
+    1.030717531000846,
+    1.0133166939995135,
+    1.0079543250030838,
+    1.0109321340059978,
+    1.0111447890012641
+  ],
+  "median_seconds": 1.0111447890012641,
+  "peak_rss_bytes_by_run": [
+    147312640,
+    147312640,
+    147312640,
+    147312640,
+    147312640
+  ],
+  "timing_scope": "Local CPU, one thread, both basis calls and output validation. Import, loading and scoring excluded.",
+  "prediction_sha256": {
+    "X": "800470629c38558bc0ffc61a05ab18bba57744b7072e3f67aebc1991c377a6da",
+    "Z": "6ba6f7f5ca43fc97030a02118846718c7af6055d90c76c2bb612c9ad7f4b8225"
+  },
+  "tests_passed": 26,
+  "test_log_sha256": "d29a99290141c68f732a574e59629cc0196a0508337b56400c79c497eedc99a8",
+  "gates": {
+    "combined_ler": true,
+    "x_ler": true,
+    "z_ler": true,
+    "paired_gain_lower_ci_positive": true,
+    "runtime": true,
+    "inference_rss": true,
+    "training_resources": true,
+    "unit_tests": true
+  },
+  "passed": true
+}

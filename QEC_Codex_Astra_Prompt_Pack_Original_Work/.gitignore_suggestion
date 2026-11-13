@@ -1,0 +1,11 @@
+# Suggested additions to the project's existing .gitignore. Check before applying.
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.zip
+artifacts/
+outputs/
+submission_*.csv
+models/*.pt
+models/*.pth

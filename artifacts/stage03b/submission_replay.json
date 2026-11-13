@@ -1,0 +1,22 @@
+{
+  "candidate": "parity_v1",
+  "fresh_process": true,
+  "batch_size": 3072,
+  "validation": {
+    "rows": 200000,
+    "columns": [
+      "id",
+      "L0",
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "sha256": "e964a06cd142cae8794b77b9d49e67384bcfb91600215dfd3d363e2c368d3b32",
+    "id_order_matches": true,
+    "binary": true,
+    "duplicate_ids": 0,
+    "encoding": "UTF-8"
+  },
+  "byte_identical_csv": true,
+  "sha256": "e964a06cd142cae8794b77b9d49e67384bcfb91600215dfd3d363e2c368d3b32"
+}

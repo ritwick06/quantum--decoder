@@ -1,0 +1,11 @@
+{
+  "original_files_unchanged": 22,
+  "official_files_unchanged": 24,
+  "python_files_import_checked": 12,
+  "prohibited_imports_found": [],
+  "training_prediction_rows_checked": 200000,
+  "training_predictions_match_zero_decoder": true,
+  "validation_manifest_unchanged": true,
+  "unit_tests_passed": 10,
+  "test_log_sha256": "dd7d1578d2799d4cdddb9f1b0079f77dc6f0f7574424ae9f768a7f31b0c508a2"
+}

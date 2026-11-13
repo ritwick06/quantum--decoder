@@ -1,0 +1,11 @@
+X slice 0: 321 mechanisms, retained unconditional mass 0.99127
+X slice 1: 611 mechanisms, retained unconditional mass 0.98612
+X slice 2: 574 mechanisms, retained unconditional mass 0.99152
+X slice 3: 574 mechanisms, retained unconditional mass 0.99152
+X slice 4: 372 mechanisms, retained unconditional mass 0.99712
+Z slice 0: 188 mechanisms, retained unconditional mass 0.99610
+Z slice 1: 657 mechanisms, retained unconditional mass 0.98510
+Z slice 2: 574 mechanisms, retained unconditional mass 0.99152
+Z slice 3: 574 mechanisms, retained unconditional mass 0.99152
+Z slice 4: 445 mechanisms, retained unconditional mass 0.99689
+Built temporal_v1 in 27.6s with peak RSS 1044.7 MiB

@@ -1,0 +1,9 @@
+{
+  "candidate": "parity_v1",
+  "prediction_sha256": {
+    "X": "800470629c38558bc0ffc61a05ab18bba57744b7072e3f67aebc1991c377a6da",
+    "Z": "6ba6f7f5ca43fc97030a02118846718c7af6055d90c76c2bb612c9ad7f4b8225"
+  },
+  "match": true,
+  "validation_report_sha256": "f52e48bc84aba6cf7060ee216841715128611f7ae110e0e20658c62f0b03188c"
+}

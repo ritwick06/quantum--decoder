@@ -1,0 +1,14 @@
+.venv/
+.tools/
+/.agents/
+/.aws/
+/.codex/
+/.env
+/.env.*
+/kaggle.json
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/adapters/
+quantum-error-correction-decoder/
+/quantum-error-correction-decoder.zip

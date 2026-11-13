@@ -1,0 +1,8 @@
+{
+  "candidate": "temporal_v1",
+  "prediction_sha256": {
+    "X": "1aa8c06f9c349c9c1394267946f591cf12d45035f0d0e7a239c353f8866a496a",
+    "Z": "1c9adfbf5bd63202bd46cf2ee6e737c488dd3a87864bdc728c469dcb65b05f3c"
+  },
+  "match": true
+}
