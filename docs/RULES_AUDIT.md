@@ -47,6 +47,8 @@ These are the IST conversions supplied by the user.
 
 Deadline changes in inaccessible announcements remain unverified.
 
+The local 12-second runtime and 2 GiB memory targets in recent experiments are project budgets. Under the supplied rules, the runtime score penalty starts above 15.4 seconds and disqualification applies above 300 seconds on the organizer machine.
+
 ## Local project and dataset evidence
 
 At the read-only inspection, the workspace contained the instruction pack, its ZIP, the competition ZIP, and an existing extracted dataset directory. There was no usable Git checkout, decoder source, local dependency manifest, or local test suite. The supplied design document was an unstarted template. Stage 00 adds only the three project-root documents in `docs/`.

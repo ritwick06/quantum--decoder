@@ -112,3 +112,16 @@ The local frozen LER was 0.03401250 (X 0.03460750, Z 0.03341750), a point gain o
 ## Stage 04 expanded transitions
 
 The local frozen LER was 0.03392625 (X 0.03453250, Z 0.03332000), an improvement of 0.000130 over `temporal_suffix_v1`. The independent 500,000-shot comparison confirmed a gain of 0.00011750. The five-run local median was 9.75 seconds and all 38 tests passed. [Expanded transition experiment](EXPANDED_TRANSITIONS_EXPERIMENT.md)
+
+## Stage 04 follow-up experiments
+
+All four comparisons used the same frozen X and Z holdout and `temporal_expanded_v1` as incumbent.
+
+| Candidate | Frozen LER | Local median, 200k shots | Result |
+|---|---:|---:|---|
+| [Backward likelihood](BACKWARD_LIKELIHOOD_EXPERIMENT.md) | 0.03392500 | 11.85 s | Inconclusive gain, exceeded the local memory target |
+| [Deeper transitions](DEEP_TRANSITIONS_EXPERIMENT.md) | 0.03390625 | 14.45 s | Inconclusive gain, exceeded the local runtime target |
+| [Shifted faults](SHIFTED_FAULTS_EXPERIMENT.md) | 0.03391875 | 14.16 s | Inconclusive gain, exceeded the local runtime target |
+| [Retry coverage](RETRY_COVERAGE_EXPERIMENT.md) | 0.03392125 | 15.82 s | Inconclusive gain, exceeded the local runtime target |
+
+On 14 November the user reported PHANTOMS OF QUANTUM at #15 and confirmed that the displayed 0.03361 belongs to the leader, Popeyes. The most recent confirmed team score in the supplied submissions screenshot is 0.03415. [Submission ledger](../artifacts/submissions/ledger.json)

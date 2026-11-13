@@ -4,7 +4,7 @@
   "maximum_final_selections": 2,
   "team_submissions_used": 3,
   "team_submissions_remaining": 7,
-  "quota_status": "three entries shown in the user-provided leaderboard screenshot on 2026-11-13 IST; verify live before any further upload",
+  "quota_status": "last screenshot showed three entries on 2026-11-13 IST; current quota unverified",
   "uploads_performed_by_this_project": 0,
   "entries": [
     {
@@ -141,5 +141,18 @@
     "leader_score": 0.03361,
     "date_ist": "2026-11-13",
     "evidence": "User-provided Kaggle leaderboard screenshot. The screenshot does not show the submission filename."
+  },
+  "latest_public_leaderboard_report": {
+    "date_ist": "2026-11-14",
+    "leader": {
+      "team": "Popeyes",
+      "displayed_score": 0.03361
+    },
+    "our_team": {
+      "team": "PHANTOMS OF QUANTUM",
+      "reported_rank": 15,
+      "score_at_report": null
+    },
+    "evidence": "User-provided leaderboard screenshot and clarification in chat."
   }
 }

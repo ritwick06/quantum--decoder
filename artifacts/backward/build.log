@@ -1,0 +1,5 @@
+X: indexed 1,556,787 incoming transitions
+X_reverse: indexed 1,560,325 incoming transitions
+Z: indexed 1,556,787 incoming transitions
+Z_reverse: indexed 1,560,325 incoming transitions
+Built temporal_backward_v1 in 8.9s with peak RSS 181.4 MiB

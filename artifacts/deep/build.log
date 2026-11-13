@@ -1,0 +1,17 @@
+X slice 0: 321 mechanisms, retained unconditional mass 0.99714
+X slice 1: 611 mechanisms, retained unconditional mass 0.99221
+X slice 2: 574 mechanisms, retained unconditional mass 0.99592
+X slice 3: reused identical transition distribution
+X_reverse slice 0: 188 mechanisms, retained unconditional mass 0.99779
+X_reverse slice 1: 663 mechanisms, retained unconditional mass 0.99154
+X_reverse slice 2: 574 mechanisms, retained unconditional mass 0.99590
+X_reverse slice 3: reused identical transition distribution
+Z slice 0: 188 mechanisms, retained unconditional mass 0.99905
+Z slice 1: 657 mechanisms, retained unconditional mass 0.99161
+Z slice 2: 574 mechanisms, retained unconditional mass 0.99592
+Z slice 3: reused identical transition distribution
+Z_reverse slice 0: 321 mechanisms, retained unconditional mass 0.99597
+Z_reverse slice 1: 612 mechanisms, retained unconditional mass 0.99220
+Z_reverse slice 2: 574 mechanisms, retained unconditional mass 0.99590
+Z_reverse slice 3: reused identical transition distribution
+Built temporal_deep_v1 in 43.7s with peak RSS 1086.4 MiB
