@@ -39,7 +39,7 @@ def main():
     if args.candidate in (evaluate_temporal.SPECTRAL, evaluate_temporal.SUFFIX,
                           evaluate_temporal.LOOKAHEAD, evaluate_temporal.READOUT,
                           evaluate_temporal.EXPANDED, evaluate_temporal.BACKWARD, evaluate_temporal.DEEP,
-                          evaluate_temporal.SHIFTED, evaluate_temporal.COVERAGE):
+                          evaluate_temporal.SHIFTED, evaluate_temporal.COVERAGE, evaluate_temporal.DUAL):
         confirmation_path = evidence_folder / "confirmation.json"
         confirmation = json.loads(confirmation_path.read_text())
         expected_checkpoints = confirmation["checkpoint_provenance_sha256"]

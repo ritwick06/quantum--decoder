@@ -151,8 +151,9 @@
     "our_team": {
       "team": "PHANTOMS OF QUANTUM",
       "reported_rank": 15,
-      "score_at_report": null
+      "score_at_report": 0.03393,
+      "submission_filename": null
     },
-    "evidence": "User-provided leaderboard screenshot and clarification in chat."
+    "evidence": "User-reported team rank and score. Leader score from the supplied leaderboard screenshot."
   }
 }

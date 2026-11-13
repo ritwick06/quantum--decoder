@@ -124,4 +124,8 @@ All four comparisons used the same frozen X and Z holdout and `temporal_expanded
 | [Shifted faults](SHIFTED_FAULTS_EXPERIMENT.md) | 0.03391875 | 14.16 s | Inconclusive gain, exceeded the local runtime target |
 | [Retry coverage](RETRY_COVERAGE_EXPERIMENT.md) | 0.03392125 | 15.82 s | Inconclusive gain, exceeded the local runtime target |
 
-On 14 November the user reported PHANTOMS OF QUANTUM at #15 and confirmed that the displayed 0.03361 belongs to the leader, Popeyes. The most recent confirmed team score in the supplied submissions screenshot is 0.03415. [Submission ledger](../artifacts/submissions/ledger.json)
+On 14 November the user reported PHANTOMS OF QUANTUM at #15 with a public score of 0.03393. The displayed 0.03361 belongs to the leader, Popeyes. The filename of the 0.03393 entry has not been provided. [Submission ledger](../artifacts/submissions/ledger.json)
+
+## Stage 04 readout using both search widths
+
+The frozen LER was 0.03392000 (X 0.03455250, Z 0.03328750), compared with 0.03392625 for `temporal_expanded_v1`. The gain was five net bit errors and the paired 95% interval included zero. The five-run median was 13.03 seconds. The best verified local save remains `temporal_expanded_v1`. [Dual search readout experiment](DUAL_SEARCH_READOUT_EXPERIMENT.md)

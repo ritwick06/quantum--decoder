@@ -35,6 +35,7 @@ BACKWARD = "temporal_backward_v1"
 DEEP = "temporal_deep_v1"
 SHIFTED = "temporal_shifted_v1"
 COVERAGE = "temporal_coverage_v1"
+DUAL = "temporal_dual_readout_v1"
 CHECKPOINT = ROOT / "artifacts/checkpoints" / CANDIDATE
 FALLBACK = ROOT / "artifacts/checkpoints/parity_v1"
 

@@ -64,7 +64,7 @@ def load_model():
     try:
         metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
         version = metadata["format_version"]
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
             raise ValueError("Unsupported temporal model format")
         for name, expected in metadata["assets"].items():
             if digest(HERE / name) != expected:
@@ -80,12 +80,12 @@ def load_model():
             if version == 3:
                 models[fingerprint] = version, (_load_midpoint(basis, groups),)
                 continue
-            if version in (5, 6, 7, 8, 9, 10, 11, 12):
+            if version in (5, 6, 7, 8, 9, 10, 11, 12, 13):
                 directions = (
                     _load_suffix(basis, groups, lookahead=version == 6),
                     _load_suffix(f"{basis}_reverse", groups[::-1], lookahead=version == 6),
                 )
-                if version in (8, 9, 10, 11, 12):
+                if version in (8, 9, 10, 11, 12, 13):
                     width = DEEP_FANOUT if version == 10 else EXPANDED_FANOUT
                     directions += (_load_suffix(basis, groups, width=width, backward=version == 9),
                                    _load_suffix(f"{basis}_reverse", groups[::-1], width=width, backward=version == 9))
@@ -247,7 +247,7 @@ def _bidirectional(events, directions, kernel, *, adaptive):
 
 
 @lru_cache(maxsize=2)
-def _load_readout(fingerprint):
+def _load_readout(fingerprint, width=27):
     metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
     name = "readout.npz"
     if digest(HERE / name) != metadata["assets"][name]:
@@ -257,7 +257,7 @@ def _load_readout(fingerprint):
     spec.loader.exec_module(features)
     with np.load(HERE / name, allow_pickle=False) as weights:
         coefficients = weights[fingerprint]
-    if coefficients.shape != (4, 27) or not np.isfinite(coefficients).all():
+    if coefficients.shape != (4, width) or not np.isfinite(coefficients).all():
         raise ValueError("Invalid readout coefficients")
     return features, coefficients
 
@@ -284,6 +284,20 @@ def _calibrated_readout(circuit, events, groups, fallback, forward, reverse, ini
     return initial
 
 
+def _dual_search_readout(circuit, events, groups, retry, a, b, c, d, replacement):
+    features, weights = _load_readout(circuit_digest(circuit), 34)
+    narrow = features.direction_features(a, b)
+    wide = features.direction_features(c, d)
+    counts = np.column_stack([events[:, group].sum(axis=1) for group in groups])
+    for bit in range(4):
+        rows = retry[:, bit]
+        if rows.any():
+            design = features.dual_search_columns(narrow, wide, counts, rows, bit)
+            logits = weights[bit, 0] + (design * weights[bit, 1:]).sum(axis=1)
+            replacement[rows, bit] = np.where(np.abs(logits) > 0.08, logits > 0, replacement[rows, bit])
+    return replacement
+
+
 def decode(circuit, detector_events):
     if not isinstance(circuit, stim.Circuit):
         raise TypeError("circuit must be a Stim Circuit")
@@ -303,14 +317,14 @@ def decode(circuit, detector_events):
         result = _decode_temporal(events, directions[0], kernel)
     elif version == 3:
         result = logical_decisions(_decode_temporal(events, directions[0], kernel, midpoint=True))
-    elif version in (5, 6, 7, 8, 9, 10, 11, 12):
+    elif version in (5, 6, 7, 8, 9, 10, 11, 12, 13):
         forward, reverse = directions[:2]
         a = _decode_temporal(events, forward, kernel, suffix=True)
         b = _decode_temporal(events, reverse, kernel, suffix=True)
         result = logical_decisions(a + b)
         if version == 7:
             result = _calibrated_readout(circuit, events, forward[0], fallback, a, b, result)
-        elif version in (8, 9, 10, 11, 12):
+        elif version in (8, 9, 10, 11, 12, 13):
             total = a + b
             threshold = 0.85 if version == 12 else 0.4
             retry = (np.abs(total[:, 1:]) <= threshold * total[:, :1]) | ((a[:, 1:] < 0) != (b[:, 1:] < 0))
@@ -318,12 +332,18 @@ def decode(circuit, detector_events):
             if rows.any():
                 selected = events[rows]
                 retry_mode = {"expanded": True, "backward": version == 9, "deep": version == 10}
-                refined = (_decode_temporal(selected, directions[2], kernel, **retry_mode)
-                           + _decode_temporal(selected, directions[3], kernel, **retry_mode))
+                c = _decode_temporal(selected, directions[2], kernel, **retry_mode)
+                d = _decode_temporal(selected, directions[3], kernel, **retry_mode)
+                refined = c + d
                 if version == 11:
                     refined += (_decode_temporal(selected, directions[4], kernel, suffix=True)
                                 + _decode_temporal(selected, directions[5], kernel, suffix=True))
-                result[rows] = np.where(retry[rows], logical_decisions(refined), result[rows])
+                replacement = logical_decisions(refined)
+                if version == 13:
+                    replacement = _dual_search_readout(
+                        circuit, selected, forward[0], retry[rows], a[rows], b[rows], c, d, replacement,
+                    )
+                result[rows] = np.where(retry[rows], replacement, result[rows])
     else:
         result = _bidirectional(events, directions, kernel, adaptive=version == 4)
     unknown = result < 0

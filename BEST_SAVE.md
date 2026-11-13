@@ -2,7 +2,7 @@
 
 Updated 14 November 2026, IST.
 
-**Public score to beat: 0.03361**, shown for Popeyes in the supplied leaderboard screenshot. The latest team position reported in chat was #15. The most recent confirmed team score is 0.03415 from the supplied submission screenshot.
+**Public score to beat: 0.03361**, shown for Popeyes in the supplied leaderboard screenshot. The team reported **#15 at 0.03393**, a gap of 0.00032. Confirm the filename on Kaggle before selecting the matching archive.
 
 **Best verified local save** is [temporal_expanded_v1.csv](artifacts/submissions/temporal_expanded_v1.csv).
 

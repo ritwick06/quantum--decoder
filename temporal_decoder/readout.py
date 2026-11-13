@@ -23,3 +23,16 @@ def feature_columns(prepared, counts, parity, rows, bit):
     occupancy = counts[rows].astype(np.float64)
     return np.column_stack((combined[rows], x, y, log_ratio[rows], parity[rows, bit],
                             occupancy, occupancy * x[:, None], occupancy * y[:, None]))
+
+
+def dual_search_columns(narrow, wide, counts, rows, bit):
+    a, b, combined, ratio, _ = narrow
+    c, d, refined, refined_ratio, _ = wide
+    occupancy = counts[rows].astype(np.float64)
+    x = refined[rows, bit]
+    delta = x - combined[rows, bit]
+    return np.column_stack((
+        combined[rows], refined[rows], a[rows, bit], b[rows, bit], c[rows, bit], d[rows, bit],
+        ratio[rows], refined_ratio[rows], delta, occupancy, occupancy * x[:, None],
+        occupancy * delta[:, None],
+    ))

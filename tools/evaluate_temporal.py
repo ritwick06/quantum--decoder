@@ -14,7 +14,7 @@ from evaluate_parity import ROOT, input_data, predict, prediction_hashes, checkp
 import numpy as np
 
 from stage01_support import sha256, write_json
-from tools.build_temporal import ADAPTIVE, BACKWARD, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, COVERAGE, DEEP, EXPANDED, LOOKAHEAD, MIDPOINT, READOUT, SHIFTED, SPECTRAL, SUFFIX
+from tools.build_temporal import ADAPTIVE, BACKWARD, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, COVERAGE, DEEP, DUAL, EXPANDED, LOOKAHEAD, MIDPOINT, READOUT, SHIFTED, SPECTRAL, SUFFIX
 
 
 EVIDENCE = ROOT / "artifacts/stage04"
@@ -33,6 +33,7 @@ EXPERIMENTS = {
     DEEP: ("deep", EXPANDED, 40),
     SHIFTED: ("shifted", EXPANDED, 41),
     COVERAGE: ("coverage", EXPANDED, 41),
+    DUAL: ("dual_readout", EXPANDED, 42),
 }
 
 
@@ -75,7 +76,7 @@ def evaluate(decoder, provenance, candidate=CANDIDATE):
     incumbent_bits = predict(incumbent, circuits, data)
     if prediction_hashes(incumbent_bits) != previous["prediction_sha256"]:
         raise ValueError("Incumbent predictions differ from their frozen report")
-    if candidate in (DEEP, SHIFTED, COVERAGE):
+    if candidate in (DEEP, SHIFTED, COVERAGE, DUAL):
         load_model = incumbent.__globals__.get("load_model")
         if load_model is not None:
             load_model.cache_clear()
@@ -123,6 +124,8 @@ def evaluate(decoder, provenance, candidate=CANDIDATE):
         gates["both_bases"] = all(ler[basis] <= previous["ler"][basis] for basis in "XZ")
     if candidate == CANDIDATE:
         gates["dense_ler_gain"] = dense_gain >= 0.020
+    if candidate == DUAL:
+        gates["runtime"] = median <= 300
     return {"candidate": candidate, "checkpoint_provenance_sha256": sha256(checkpoint / "provenance.json"),
             "validation_manifest_sha256": audit["validation_manifest_sha256"], "incumbent": incumbent_name,
             "incumbent_ler": previous["ler"], "incumbent_combined_ler": previous["combined_ler"],

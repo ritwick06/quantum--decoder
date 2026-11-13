@@ -39,6 +39,23 @@ class TemporalTests(unittest.TestCase):
         np.testing.assert_array_equal(design[0, 14:20], [0.5, 1, 1.5, 2, 2.5, 3])
         np.testing.assert_array_equal(design[0, 20:], [-1, -2, -3, -4, -5, -6])
 
+    def test_dual_search_features_preserve_retry_order_and_direction_changes(self):
+        narrow = readout.direction_features(
+            np.array([[2., 1., 0., 0., 0.], [2., -1., 0., 0., 0.]]),
+            np.array([[1., -1., 0., 0., 0.], [1., 1., 0., 0., 0.]]),
+        )
+        wide = readout.direction_features(
+            np.array([[2., 0., 0., 0., 0.], [2., 2., 0., 0., 0.]]),
+            np.array([[1., -1., 0., 0., 0.], [1., 1., 0., 0., 0.]]),
+        )
+        counts = np.array([[6, 5, 4, 3, 2, 1], [1, 2, 3, 4, 5, 6]])
+        design = readout.dual_search_columns(narrow, wide, counts, np.array([False, True]), 0)
+        self.assertEqual(design.shape, (1, 33))
+        np.testing.assert_allclose(design[0, :15], [
+            0, 0, 0, 0, 1, 0, 0, 0, -0.5, 1, 1, 1, np.log(2), np.log(2), 1,
+        ])
+        np.testing.assert_array_equal(design[0, 15:], np.tile(counts[1], 3))
+
     def test_bidirectional_checkpoint_keeps_forward_predictions_and_row_order(self):
         path = CHECKPOINT.parent / "temporal_bidir_v1"
         rng = np.random.default_rng(740)

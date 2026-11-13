@@ -11,7 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from evaluate_temporal import checkpoint_decoder, locations
 from stage01_support import ROOT, sha256, write_json
-from tools.build_temporal import BACKWARD, BIDIRECTIONAL, COVERAGE, DEEP, EXPANDED, LOOKAHEAD, READOUT, SHIFTED, SPECTRAL, SUFFIX
+from tools.build_temporal import BACKWARD, BIDIRECTIONAL, COVERAGE, DEEP, DUAL, EXPANDED, LOOKAHEAD, READOUT, SHIFTED, SPECTRAL, SUFFIX
 
 
 REPRODUCTION_SOURCES = (
@@ -26,6 +26,7 @@ REPRODUCTION_SOURCES = (
     "docs/EXPANDED_TRANSITIONS_EXPERIMENT.md", "docs/BACKWARD_LIKELIHOOD_EXPERIMENT.md",
     "docs/DEEP_TRANSITIONS_EXPERIMENT.md", "docs/SHIFTED_FAULTS_EXPERIMENT.md",
     "docs/RETRY_COVERAGE_EXPERIMENT.md",
+    "docs/DUAL_SEARCH_READOUT_EXPERIMENT.md",
 )
 
 
@@ -69,10 +70,12 @@ def hand_in_readme(candidate, manifest):
              LOOKAHEAD: ("--suffix", "--lookahead"), READOUT: ("--suffix",),
              EXPANDED: ("--suffix", "--expanded"), BACKWARD: ("--suffix", "--expanded", "--backward"),
              DEEP: ("--suffix", "--deep"), SHIFTED: ("--suffix", "--expanded", "--shifted"),
-             COVERAGE: ("--suffix", "--expanded", "--coverage")}.get(candidate, ())
+             COVERAGE: ("--suffix", "--expanded", "--coverage"), DUAL: ("--suffix", "--expanded")}.get(candidate, ())
     extra_build = "".join(f"\nOPENBLAS_NUM_THREADS=1 python tools/build_temporal.py {mode}" for mode in modes)
     if candidate == READOUT:
         extra_build += "\nOPENBLAS_NUM_THREADS=1 python tools/train_temporal_readout.py"
+    if candidate == DUAL:
+        extra_build += "\nOPENBLAS_NUM_THREADS=1 python tools/train_temporal_readout.py --dual"
     return f"""# PHANTOMS OF QUANTUM decoder
 
 This package contains the {candidate} decoder. Install the pinned requirements in
@@ -134,7 +137,7 @@ if verified["sha256"] != sys.argv[4]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX, LOOKAHEAD, READOUT, EXPANDED, BACKWARD, DEEP, SHIFTED, COVERAGE),
+    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX, LOOKAHEAD, READOUT, EXPANDED, BACKWARD, DEEP, SHIFTED, COVERAGE, DUAL),
                         required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
