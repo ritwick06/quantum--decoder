@@ -1,0 +1,35 @@
+{
+  "training_file_sha256": "8f17ab7f4867b7f5fa46094995b0a898f53796cde9f590617a48bce3b4abded4",
+  "reserved_mask_sha256": "15b03cc4b3c27abed9f364e4d1d64130aa7e86a909004cd2790303a45a738b94",
+  "bidirectional_checkpoint_sha256": "95c47c132a2c4110b3f7221a6ff2d005818fa3ee11d92e9a926e7209501cfdd9",
+  "midpoint_checkpoint_sha256": "439aef4035d9b5a6aafc23a95dfb961edbf15cd918337aea908d61eaad6797ba",
+  "low_confidence_max_absolute_signed_fraction": 0.45,
+  "basis": {
+    "X": {
+      "development_shots": 80130,
+      "low_confidence_shots": 6766,
+      "incumbent_errors": 10998,
+      "incumbent_low_confidence_errors": 6345,
+      "error_gain_by_midpoint_weight": {
+        "0.15": -50,
+        "0.25": -88,
+        "0.4": -109,
+        "0.5": -143,
+        "1.0": -241
+      }
+    },
+    "Z": {
+      "development_shots": 80121,
+      "low_confidence_shots": 6623,
+      "incumbent_errors": 10711,
+      "incumbent_low_confidence_errors": 6009,
+      "error_gain_by_midpoint_weight": {
+        "0.15": -13,
+        "0.25": -35,
+        "0.4": -89,
+        "0.5": -107,
+        "1.0": -212
+      }
+    }
+  }
+}

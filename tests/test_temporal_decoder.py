@@ -8,7 +8,7 @@ import stim
 
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
-from tools.build_temporal import CHECKPOINT, xor_moments
+from tools.build_temporal import ADAPTIVE, CHECKPOINT, MIDPOINT, xor_moments
 
 
 class TemporalTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class TemporalTests(unittest.TestCase):
                 decoder.load_model.cache_clear()
                 try:
                     kernel, fallback, models = decoder.load_model()
-                    forward, reverse = models[decoder.circuit_digest(circuit)]
+                    _, (forward, reverse) = models[decoder.circuit_digest(circuit)]
                     self.assertEqual(reverse[0], forward[0][::-1])
                     np.testing.assert_array_equal(
                         decoder.observed_slices(events, reverse[0]),
@@ -104,6 +104,54 @@ class TemporalTests(unittest.TestCase):
                                              terminal.ctypes.data, result.ctypes.data)
         self.assertEqual(status, 0)
         np.testing.assert_array_equal(result, [[0, 1, 0, 0], [-1, -1, -1, -1]])
+
+    def test_midpoint_join_matches_exhaustive_distribution(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / MIDPOINT / "kernel.so")
+        tables = [np.zeros((2, decoder.FANOUT), dtype=decoder.EDGE) for _ in range(5)]
+        for t in (0, 2, 3):
+            tables[t][0, 0] = (0, [1] * 5)
+        p_left, p_right, p_middle = 0.25, 0.5, 0.125
+        for t, p, signs in ((1, p_left, [-1, 1, 1, 1]), (4, p_right, [1, -1, 1, 1])):
+            tables[t][0, 0] = (0, [1 - p] * 5)
+            tables[t][0, 1] = (1, [p, *(p * s for s in signs)])
+        middle = np.array([[1 - p_middle] * 5, [p_middle, p_middle, p_middle, -p_middle, p_middle]])
+        marginals = [np.ones(2) for _ in tables]
+        table_ptrs = (ctypes.c_void_p * 5)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 5)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((2, 6), dtype=np.uint16)
+        observed[1, 2] = 1
+        actual = np.empty((2, 5), dtype=np.float64)
+        expected = np.zeros_like(actual)
+        for a, b, c in itertools.product((0, 1), repeat=3):
+            weight = np.prod(np.where([a, b, c], [p_left, p_right, p_middle],
+                                      [1 - p_left, 1 - p_right, 1 - p_middle]))
+            expected[a ^ b ^ c] += weight * np.array([1, 1 - 2 * a, 1 - 2 * b, 1 - 2 * c, 1])
+        status = kernel.temporal_midpoint(observed.ctypes.data, len(observed), table_ptrs, marginal_ptrs,
+                                          middle.ctypes.data, actual.ctypes.data)
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, expected)
+
+    def test_wide_beam_recovers_a_path_pruned_by_narrow_beam(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / ADAPTIVE / "kernel.so")
+        tables = [np.zeros((64, decoder.FANOUT), dtype=decoder.EDGE) for _ in range(5)]
+        for mask in range(32):
+            tables[0][0, mask] = (mask, [1.0] * 5)
+        tables[0][0, 32] = (32, [0.5, -0.5, 0.5, 0.5, 0.5])
+        tables[1][32, 0] = (0, [1.0] * 5)
+        for table in tables[2:]:
+            table[0, 0] = (0, [1.0] * 5)
+        marginals = [np.ones(64) for _ in tables]
+        terminal = np.ones((64, 5))
+        table_ptrs = (ctypes.c_void_p * 5)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 5)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((1, 6), dtype=np.uint16)
+        actual = np.empty((1, 5), dtype=np.float64)
+        for infer, expected in ((kernel.temporal_moments, [[0] * 5]),
+                                (kernel.temporal_wide_moments, [[0.5, -0.5, 0.5, 0.5, 0.5]])):
+            status = infer(observed.ctypes.data, len(observed), table_ptrs, marginal_ptrs,
+                           terminal.ctypes.data, actual.ctypes.data)
+            self.assertEqual(status, 0)
+            np.testing.assert_array_equal(actual, expected)
 
     def test_checkpoint_batch_and_input_contract(self):
         rng = np.random.default_rng(914)

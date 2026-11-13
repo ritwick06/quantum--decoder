@@ -64,3 +64,19 @@ The fixed configuration passed every promotion check against `parity_v1`. The pa
 | 2026-11-13 | `temporal_bidir_v1` | Original frozen validation, X seed 2026111301 and Z seed 2026111302 | 0.03469250 | 0.03351000 | 0.03410125 | 8.21826 s, four workers | Pending |
 
 The fixed two-pass configuration passed every promotion check against `temporal_v1`. The paired LER gain was 0.000900, with a 95% interval of [0.000727, 0.001073]. Both bases improved. No additional labelled fitting was used. Fresh-process replay reproduced the frozen predictions and the exact submission bytes. [Bidirectional experiment](BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md)
+
+## Stage 04 midpoint join
+
+| Date (IST) | Candidate | Evaluation data | X LER | Z LER | Combined LER | Local median, 200k shots | Kaggle score |
+|---|---|---|---:|---:|---:|---:|---|
+| 2026-11-13 | `temporal_midpoint_v1` | Original frozen validation, X seed 2026111301 and Z seed 2026111302 | 0.03652500 | 0.03509750 | 0.03581125 | 4.26973 s, four workers | No submission |
+
+Both bases regressed relative to `temporal_bidir_v1`. The midpoint join failed promotion. This is the first consecutive unsuccessful experiment in the active goal. [Midpoint experiment](MIDPOINT_TEMPORAL_EXPERIMENT.md)
+
+## Stage 04 adaptive beam width
+
+| Date (IST) | Candidate | Evaluation data | X LER | Z LER | Combined LER | Local median, 200k shots | Kaggle score |
+|---|---|---|---:|---:|---:|---:|---|
+| 2026-11-13 | `temporal_adaptive_v1` | Original frozen validation, X seed 2026111301 and Z seed 2026111302 | 0.03471250 | 0.03350000 | 0.03410625 | 12.06620 s, four workers | No submission |
+
+The adaptive decoder made four more bit errors than `temporal_bidir_v1` and exceeded the 12-second budget. This was the second consecutive unsuccessful experiment. The upload recommendation remains `temporal_bidir_v1.csv`. [Adaptive beam experiment](ADAPTIVE_BEAM_EXPERIMENT.md)

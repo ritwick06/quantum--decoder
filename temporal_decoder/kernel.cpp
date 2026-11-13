@@ -8,6 +8,8 @@ namespace {
 constexpr int moments = 5;
 constexpr int fanout = 48;
 constexpr int beam_width = 32;
+constexpr int join_width = 48;
+constexpr int wide_width = 128;
 constexpr unsigned out_bits = 14;
 constexpr unsigned out_mask = (1u << out_bits) - 1;
 using Mass = std::array<double, moments>;
@@ -101,45 +103,61 @@ extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int
 }
 
 namespace {
+struct Beam {
+    std::array<Link, wide_width> links;
+    int count = 1;
+
+    Beam() { links[0] = {0, {1.0, 1.0, 1.0, 1.0, 1.0}}; }
+};
+
+struct Scratch {
+    std::vector<Mass> sums = std::vector<Mass>(1u << out_bits);
+    std::vector<RankedLink> ranked;
+
+    Scratch() { ranked.reserve(beam_width * fanout); }
+
+    void advance(Beam& beam, const Edge* table, const double* marginal,
+                 unsigned syndrome, unsigned next_syndrome, int width) {
+        ranked.clear();
+        for (int i = 0; i < beam.count; ++i) {
+            const auto& state = beam.links[i];
+            const auto row = state.boundary ^ syndrome;
+            const Edge* edges = table + std::size_t(row) * fanout;
+            for (int j = 0; j < fanout && edges[j].mass[0] > 0; ++j) {
+                const auto& edge = edges[j];
+                auto& mass = sums[edge.outgoing];
+                if (mass[0] == 0) ranked.push_back({edge.outgoing, 0});
+                propagate(edge, state.mass, mass);
+            }
+        }
+        for (auto& item : ranked) {
+            item.score = sums[item.boundary][0] * marginal[item.boundary ^ next_syndrome];
+        }
+        beam.count = std::min(int(ranked.size()), width);
+        std::partial_sort(ranked.begin(), ranked.begin() + beam.count, ranked.end(), earlier);
+        for (int i = 0; i < beam.count; ++i) {
+            beam.links[i] = {ranked[i].boundary, sums[ranked[i].boundary]};
+        }
+        for (const auto& item : ranked) sums[item.boundary] = {};
+    }
+};
+
 template <typename Finish>
 int decode_rows(const std::uint16_t* observed, std::size_t shots,
                 const Edge* const* tables, const double* const* marginals,
-                const double* terminal, Finish finish) {
+                const double* terminal, int width, Finish finish) {
     try {
-        std::vector<Mass> sums(1u << out_bits);
-        std::vector<RankedLink> ranked;
-        ranked.reserve(beam_width * fanout);
+        Scratch scratch;
         for (std::size_t shot = 0; shot < shots; ++shot) {
             const auto* syndrome = observed + 6 * shot;
-            Link beam[beam_width];
-            beam[0] = {0, {1.0, 1.0, 1.0, 1.0, 1.0}};
-            int count = 1;
-            for (int time = 0; time < 5 && count; ++time) {
-                ranked.clear();
-                for (int i = 0; i < count; ++i) {
-                    const auto& state = beam[i];
-                    const auto row = state.boundary ^ syndrome[time];
-                    const Edge* edges = tables[time] + std::size_t(row) * fanout;
-                    for (int j = 0; j < fanout && edges[j].mass[0] > 0; ++j) {
-                        const auto& edge = edges[j];
-                        auto& mass = sums[edge.outgoing];
-                        if (mass[0] == 0) ranked.push_back({edge.outgoing, 0});
-                        propagate(edge, state.mass, mass);
-                    }
-                }
-                for (auto& item : ranked) {
-                    item.score = sums[item.boundary][0] * marginals[time][item.boundary ^ syndrome[time + 1]];
-                }
-                count = std::min(int(ranked.size()), beam_width);
-                std::partial_sort(ranked.begin(), ranked.begin() + count, ranked.end(), earlier);
-                for (int i = 0; i < count; ++i) {
-                    beam[i] = {ranked[i].boundary, sums[ranked[i].boundary]};
-                }
-                for (const auto& item : ranked) sums[item.boundary] = {};
+            Beam beam;
+            for (int time = 0; time < 5 && beam.count; ++time) {
+                scratch.advance(beam, tables[time], marginals[time], syndrome[time],
+                                syndrome[time + 1], width);
             }
             Mass posterior{};
-            for (int i = 0; i < count; ++i) {
-                const auto& state = beam[i];
+            for (int i = 0; i < beam.count; ++i) {
+                const auto& state = beam.links[i];
                 const auto* local = terminal + (state.boundary ^ syndrome[5]) * moments;
                 for (int j = 0; j < moments; ++j) posterior[j] += state.mass[j] * local[j];
             }
@@ -155,7 +173,7 @@ int decode_rows(const std::uint16_t* observed, std::size_t shots,
 extern "C" int temporal_decode(const std::uint16_t* observed, std::size_t shots,
                                const Edge* const* tables, const double* const* marginals,
                                const double* terminal, std::int8_t* output) {
-    return decode_rows(observed, shots, tables, marginals, terminal, [output](std::size_t shot, const Mass& posterior) {
+    return decode_rows(observed, shots, tables, marginals, terminal, beam_width, [output](std::size_t shot, const Mass& posterior) {
         for (int bit = 0; bit < 4; ++bit) {
             const auto signal = posterior[bit + 1];
             output[4 * shot + bit] = posterior[0] <= 0 || std::abs(signal) <= 0.025 * posterior[0]
@@ -167,7 +185,50 @@ extern "C" int temporal_decode(const std::uint16_t* observed, std::size_t shots,
 extern "C" int temporal_moments(const std::uint16_t* observed, std::size_t shots,
                                 const Edge* const* tables, const double* const* marginals,
                                 const double* terminal, double* output) {
-    return decode_rows(observed, shots, tables, marginals, terminal, [output](std::size_t shot, const Mass& posterior) {
+    return decode_rows(observed, shots, tables, marginals, terminal, beam_width, [output](std::size_t shot, const Mass& posterior) {
         std::copy(posterior.begin(), posterior.end(), output + moments * shot);
     });
+}
+
+extern "C" int temporal_wide_moments(const std::uint16_t* observed, std::size_t shots,
+                                     const Edge* const* tables, const double* const* marginals,
+                                     const double* terminal, double* output) {
+    return decode_rows(observed, shots, tables, marginals, terminal, wide_width, [output](std::size_t shot, const Mass& posterior) {
+        std::copy(posterior.begin(), posterior.end(), output + moments * shot);
+    });
+}
+
+// Tables are ordered left to right for two slices, then right to left for three.
+extern "C" int temporal_midpoint(const std::uint16_t* observed, std::size_t shots,
+                                 const Edge* const* tables, const double* const* marginals,
+                                 const double* middle, double* output) {
+    try {
+        Scratch scratch;
+        for (std::size_t shot = 0; shot < shots; ++shot) {
+            const auto* syndrome = observed + 6 * shot;
+            Beam left, right;
+            scratch.advance(left, tables[0], marginals[0], syndrome[0], syndrome[1], beam_width);
+            scratch.advance(left, tables[1], marginals[1], syndrome[1], syndrome[2], join_width);
+            scratch.advance(right, tables[2], marginals[2], syndrome[5], syndrome[4], beam_width);
+            scratch.advance(right, tables[3], marginals[3], syndrome[4], syndrome[3], beam_width);
+            scratch.advance(right, tables[4], marginals[4], syndrome[3], syndrome[2], join_width);
+
+            Mass posterior{};
+            for (int i = 0; i < left.count; ++i) {
+                const auto& a = left.links[i];
+                const auto residual = syndrome[2] ^ a.boundary;
+                Mass contracted{};
+                for (int j = 0; j < right.count; ++j) {
+                    const auto& b = right.links[j];
+                    const auto* local = middle + (residual ^ b.boundary) * moments;
+                    for (int k = 0; k < moments; ++k) contracted[k] += b.mass[k] * local[k];
+                }
+                for (int k = 0; k < moments; ++k) posterior[k] += a.mass[k] * contracted[k];
+            }
+            std::copy(posterior.begin(), posterior.end(), output + moments * shot);
+        }
+        return 0;
+    } catch (...) {
+        return 1;
+    }
 }

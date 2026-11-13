@@ -23,6 +23,9 @@ from temporal_decoder.decoder import EDGE, FANOUT, ROUND_SIZES, circuit_digest, 
 
 
 CANDIDATE = "temporal_v1"
+BIDIRECTIONAL = "temporal_bidir_v1"
+MIDPOINT = "temporal_midpoint_v1"
+ADAPTIVE = "temporal_adaptive_v1"
 CHECKPOINT = ROOT / "artifacts/checkpoints" / CANDIDATE
 FALLBACK = ROOT / "artifacts/checkpoints/parity_v1"
 
@@ -84,14 +87,52 @@ def generate_basis(path, basis, circuit, kernel, *, reverse=False):
     return groups, masses
 
 
+def generate_midpoint(path, basis, circuit, groups, incumbent):
+    reverse = f"{basis}_reverse"
+    names = [f"{basis}_edges_{t}" for t in range(2)]
+    names += [f"{reverse}_edges_{t}" for t in range(3)]
+    names += [f"{basis}_marginal_1", f"{reverse}_marginal_1", f"{reverse}_marginal_2"]
+    for name in names:
+        shutil.copyfile(incumbent / f"{name}.npy", path / f"{name}.npy")
+
+    data = problem_info(circuit)
+    times = np.empty(70, dtype=int)
+    for t, indexes in enumerate(groups):
+        times[indexes] = t
+    checks = data["H"]
+    earliest = np.min(np.where(checks, times[:, None], 6), axis=0)
+    latest = np.max(np.where(checks, times[:, None], -1), axis=0)
+    if np.any(earliest > latest) or np.any(latest - earliest > 1):
+        raise ValueError(f"Unexpected fault span in {basis}")
+    left = earliest < 2
+    right = latest > 2
+    if np.any(left & right):
+        raise ValueError(f"A fault spans both sides of the midpoint in {basis}")
+    middle = ~(left | right)
+    parity = projected_masks(checks, groups[2])
+    logical = projected_masks(data["L"], list(range(4)))
+    p = data["p"]
+    local = xor_moments(parity[middle], logical[middle], p[middle], 1 << 14)
+    np.save(path / f"{basis}_middle.npy", local, allow_pickle=False)
+    for name, selected in (("left", left | middle), ("right", right | middle)):
+        likelihood = xor_moments(parity[selected], logical[selected], p[selected], 1 << 14)
+        np.save(path / f"{basis}_middle_{name}.npy", likelihood[:, 0], allow_pickle=False)
+    print(f"{basis}: {middle.sum()} exact middle-slice mechanisms, expected count {p[middle].sum():.6f}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bidirectional", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--bidirectional", action="store_true")
+    modes.add_argument("--midpoint", action="store_true")
+    modes.add_argument("--adaptive", action="store_true")
     args = parser.parse_args()
-    candidate = "temporal_bidir_v1" if args.bidirectional else CANDIDATE
+    modes = {name: candidate for name, candidate in (("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
+                                                    ("bidirectional", BIDIRECTIONAL))}
+    candidate = next((value for name, value in modes.items() if getattr(args, name)), CANDIDATE)
     destination = CHECKPOINT.parent / candidate
-    design = ("docs/BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md" if args.bidirectional
-              else "docs/STAGE04_TEMPORAL_EXPERIMENT.md")
+    design = {CANDIDATE: "STAGE04_TEMPORAL_EXPERIMENT.md", BIDIRECTIONAL: "BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
+              MIDPOINT: "MIDPOINT_TEMPORAL_EXPERIMENT.md", ADAPTIVE: "ADAPTIVE_BEAM_EXPERIMENT.md"}[candidate]
     start = time.perf_counter()
     if destination.exists():
         raise FileExistsError(destination)
@@ -102,12 +143,13 @@ def main():
         if sha256(FALLBACK / name) != expected:
             raise ValueError(f"Parity fallback changed: {name}")
     audit = json.loads((ROOT / "artifacts/stage01/report.json").read_text())
-    incumbent = json.loads((CHECKPOINT / "provenance.json").read_text()) if args.bidirectional else None
+    predecessor = CHECKPOINT.parent / BIDIRECTIONAL if (args.midpoint or args.adaptive) else CHECKPOINT
+    incumbent = json.loads((predecessor / "provenance.json").read_text()) if candidate != CANDIDATE else None
     if incumbent:
         for name, digest in incumbent["files"].items():
-            if sha256(CHECKPOINT / name) != digest:
-                raise ValueError(f"Forward checkpoint changed: {name}")
-        forward_metadata = json.loads((CHECKPOINT / "model.json").read_text())
+            if sha256(predecessor / name) != digest:
+                raise ValueError(f"Predecessor checkpoint changed: {name}")
+        previous_metadata = json.loads((predecessor / "model.json").read_text())
     compile_args = ["g++", "-std=c++17", "-O3", "-fPIC", "-shared", "-ffp-contract=off", "-march=x86-64-v2"]
     CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".temporal-", dir=CHECKPOINT.parent) as temp:
@@ -127,20 +169,27 @@ def main():
             fingerprints[basis] = circuit_digest(circuit)
             if fingerprints[basis] != audit["circuits"][basis]["canonical_circuit_sha256"]:
                 raise ValueError(f"Audited circuit changed: {basis}")
-            if incumbent:
-                detector_groups[basis] = forward_metadata["detector_groups"][basis]
+            if args.midpoint:
+                detector_groups[basis] = previous_metadata["detector_groups"][basis]
+                generate_midpoint(path, basis, circuit, detector_groups[basis], predecessor)
+            elif incumbent:
+                detector_groups[basis] = previous_metadata["detector_groups"][basis]
                 retained_mass[basis] = incumbent["retained_mass_by_slice"][basis]
                 for name in incumbent["files"]:
                     if name.startswith(f"{basis}_") and name.endswith(".npy"):
-                        shutil.copyfile(CHECKPOINT / name, path / name)
+                        shutil.copyfile(predecessor / name, path / name)
                 prefix = f"{basis}_reverse"
-                groups, retained_mass[prefix] = generate_basis(path, prefix, circuit, kernel, reverse=True)
-                if groups != detector_groups[basis][::-1]:
-                    raise ValueError(f"Reversed detector groups changed the within-slice order for {basis}")
+                if args.bidirectional:
+                    groups, retained_mass[prefix] = generate_basis(path, prefix, circuit, kernel, reverse=True)
+                    if groups != detector_groups[basis][::-1]:
+                        raise ValueError(f"Reversed detector groups changed the within-slice order for {basis}")
+                else:
+                    retained_mass[prefix] = incumbent["retained_mass_by_slice"][prefix]
             else:
                 detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
         assets = {str(file.relative_to(path)): sha256(file) for file in sorted(path.rglob("*")) if file.is_file()}
-        write_json(path / "model.json", {"format_version": 2 if args.bidirectional else 1, "canonical_circuit_sha256": fingerprints,
+        version = {CANDIDATE: 1, BIDIRECTIONAL: 2, MIDPOINT: 3, ADAPTIVE: 4}[candidate]
+        write_json(path / "model.json", {"format_version": version, "canonical_circuit_sha256": fingerprints,
                                         "detector_groups": detector_groups, "assets": assets})
         elapsed = time.perf_counter() - start
         peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
@@ -153,8 +202,8 @@ def main():
             "compiler": subprocess.check_output(["g++", "--version"], text=True).splitlines()[0],
             "python": platform.python_version(), "organizer_revision": audit["source_revision"],
             "fallback_provenance_sha256": sha256(FALLBACK / "provenance.json"),
-            "design_sha256": sha256(ROOT / design),
-            "forward_provenance_sha256": sha256(CHECKPOINT / "provenance.json") if incumbent else None,
+            "design_sha256": sha256(ROOT / "docs" / design),
+            "forward_provenance_sha256": sha256(predecessor / "provenance.json") if incumbent else None,
             "asset_generator_sha256": sha256(Path(__file__)),
         })
         if destination.exists():

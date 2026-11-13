@@ -7,6 +7,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import evaluate_parity
+import evaluate_temporal
 from evaluate_parity import ROOT
 from stage01_support import load_circuits, sha256, write_json
 from submission_pipeline import load_test_data, predict_checked, validate_submission, write_submission
@@ -17,7 +18,7 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--output", type=Path)
     mode.add_argument("--verify", type=Path)
-    parser.add_argument("--candidate", choices=("parity_v1", "temporal_v1", "temporal_bidir_v1"), default="parity_v1")
+    parser.add_argument("--candidate", choices=("parity_v1", *evaluate_temporal.EXPERIMENTS), default="parity_v1")
     parser.add_argument("--batch-size", type=int, default=None)
     args = parser.parse_args()
     output = args.output or args.verify
@@ -25,7 +26,6 @@ def main():
     if args.output and any(path.exists() or path.is_symlink() for path in (output, sidecar)):
         raise FileExistsError("Choose a new output path")
     if args.candidate.startswith("temporal_"):
-        import evaluate_temporal
         checkpoint, evidence_folder = evaluate_temporal.locations(args.candidate)
         report_path = evidence_folder / "validation.json"
         decoder, provenance = evaluate_temporal.checkpoint_decoder(args.candidate)

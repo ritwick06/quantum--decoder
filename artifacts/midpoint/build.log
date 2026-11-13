@@ -1,0 +1,3 @@
+X: 113 exact middle-slice mechanisms, expected count 0.232719
+Z: 113 exact middle-slice mechanisms, expected count 0.232719
+Built temporal_midpoint_v1 in 6.9s with peak RSS 48.0 MiB

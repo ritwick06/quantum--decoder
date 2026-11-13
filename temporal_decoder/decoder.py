@@ -31,9 +31,11 @@ def load_kernel(path):
     library.temporal_build.restype = ctypes.c_int
     library.temporal_decode.argtypes = [pointer, ctypes.c_size_t, pointer, pointer, pointer, pointer]
     library.temporal_decode.restype = ctypes.c_int
-    if hasattr(library, "temporal_moments"):
-        library.temporal_moments.argtypes = library.temporal_decode.argtypes
-        library.temporal_moments.restype = ctypes.c_int
+    for name in ("temporal_moments", "temporal_midpoint", "temporal_wide_moments"):
+        infer = getattr(library, name, None)
+        if infer is not None:
+            infer.argtypes = library.temporal_decode.argtypes
+            infer.restype = ctypes.c_int
     return library
 
 
@@ -45,7 +47,8 @@ def circuit_digest(circuit):
 def load_model():
     try:
         metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
-        if metadata["format_version"] not in (1, 2):
+        version = metadata["format_version"]
+        if version not in (1, 2, 3, 4):
             raise ValueError("Unsupported temporal model format")
         for name, expected in metadata["assets"].items():
             if digest(HERE / name) != expected:
@@ -58,30 +61,51 @@ def load_model():
         models = {}
         for basis, fingerprint in metadata["canonical_circuit_sha256"].items():
             groups = metadata["detector_groups"][basis]
+            if version == 3:
+                models[fingerprint] = version, (_load_midpoint(basis, groups),)
+                continue
             directions = [_load_direction(basis, groups)]
-            if metadata["format_version"] == 2:
+            if version in (2, 4):
                 directions.append(_load_direction(f"{basis}_reverse", groups[::-1]))
-            models[fingerprint] = tuple(directions)
+            models[fingerprint] = version, tuple(directions)
         return kernel, fallback.decode, models
     except (OSError, TypeError, KeyError, ValueError) as exc:
         raise ValueError(f"Cannot load temporal checkpoint assets from {HERE}: {exc}") from exc
 
 
-def _load_direction(prefix, groups):
+def _check_groups(groups):
     if tuple(map(len, groups)) != ROUND_SIZES or sorted(sum(groups, [])) != list(range(70)):
-        raise ValueError(f"Invalid detector groups for {prefix}")
-    tables = tuple(np.load(HERE / f"{prefix}_edges_{t}.npy", mmap_mode="r", allow_pickle=False) for t in range(5))
-    marginals = tuple(np.load(HERE / f"{prefix}_marginal_{t}.npy", mmap_mode="r", allow_pickle=False) for t in range(1, 6))
-    terminal = np.load(HERE / f"{prefix}_terminal.npy", mmap_mode="r", allow_pickle=False)
-    for table, size in zip(tables, ROUND_SIZES[:-1], strict=True):
-        if table.shape != (1 << size, FANOUT) or table.dtype != EDGE:
-            raise ValueError(f"Invalid edge table for {prefix}")
-    for marginal, size in zip(marginals, ROUND_SIZES[1:], strict=True):
-        if marginal.shape != (1 << size,) or marginal.dtype != np.float64:
-            raise ValueError(f"Invalid marginal table for {prefix}")
-    if terminal.shape != (128, 5) or terminal.dtype != np.float64:
-        raise ValueError(f"Invalid terminal table for {prefix}")
+        raise ValueError("Invalid temporal detector groups")
+
+
+def _load_array(name, shape, dtype):
+    array = np.load(HERE / f"{name}.npy", mmap_mode="r", allow_pickle=False)
+    if array.shape != shape or array.dtype != dtype:
+        raise ValueError(f"Invalid temporal array: {name}")
+    return array
+
+
+def _load_direction(prefix, groups):
+    _check_groups(groups)
+    tables = tuple(_load_array(f"{prefix}_edges_{t}", (1 << size, FANOUT), EDGE)
+                   for t, size in enumerate(ROUND_SIZES[:-1]))
+    marginals = tuple(_load_array(f"{prefix}_marginal_{t}", (1 << size,), np.float64)
+                      for t, size in enumerate(ROUND_SIZES[1:], start=1))
+    terminal = _load_array(f"{prefix}_terminal", (128, 5), np.float64)
     return groups, tables, marginals, terminal
+
+
+def _load_midpoint(basis, groups):
+    _check_groups(groups)
+    reverse = f"{basis}_reverse"
+    steps = ((basis, 0), (basis, 1), (reverse, 0), (reverse, 1), (reverse, 2))
+    tables = tuple(_load_array(f"{prefix}_edges_{t}", (1 << ROUND_SIZES[t], FANOUT), EDGE)
+                   for prefix, t in steps)
+    names = (f"{basis}_marginal_1", f"{basis}_middle_right", f"{reverse}_marginal_1",
+             f"{reverse}_marginal_2", f"{basis}_middle_left")
+    marginals = tuple(_load_array(name, (1 << 14,), np.float64) for name in names)
+    middle = _load_array(f"{basis}_middle", (1 << 14, 5), np.float64)
+    return groups, tables, marginals, middle
 
 
 def observed_slices(events, groups):
@@ -92,14 +116,19 @@ def observed_slices(events, groups):
     return observed
 
 
-def _decode_temporal(events, model, kernel, *, return_moments=False):
+def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False, wide=False):
     groups, tables, marginals, terminal = model
     observed = observed_slices(events, groups)
     table_pointers = (ctypes.c_void_p * 5)(*(table.ctypes.data for table in tables))
     marginal_pointers = (ctypes.c_void_p * 5)(*(marginal.ctypes.data for marginal in marginals))
-    if return_moments:
+    if return_moments or midpoint or wide:
         result = np.empty((len(events), 5), dtype=np.float64)
-        infer = kernel.temporal_moments
+        if midpoint:
+            infer = kernel.temporal_midpoint
+        elif wide:
+            infer = kernel.temporal_wide_moments
+        else:
+            infer = kernel.temporal_moments
     else:
         result = np.empty((len(events), 4), dtype=np.int8)
         infer = kernel.temporal_decode
@@ -128,6 +157,22 @@ def logical_decisions(moments):
     return np.where(supported, signed < 0, -1).astype(np.int8)
 
 
+def _bidirectional(events, directions, kernel, *, adaptive):
+    forward, reverse = directions
+    narrow = (_decode_temporal(events, forward, kernel, return_moments=True)
+              + _decode_temporal(events, reverse, kernel, return_moments=True))
+    result = logical_decisions(narrow)
+    if adaptive:
+        retry = np.abs(narrow[:, 1:]) <= 0.45 * narrow[:, :1]
+        rows = retry.any(axis=1)
+        if rows.any():
+            selected = events[rows]
+            refined = (_decode_temporal(selected, forward, kernel, wide=True)
+                       + _decode_temporal(selected, reverse, kernel, wide=True))
+            result[rows] = np.where(retry[rows], logical_decisions(refined), result[rows])
+    return result
+
+
 def decode(circuit, detector_events):
     if not isinstance(circuit, stim.Circuit):
         raise TypeError("circuit must be a Stim Circuit")
@@ -137,17 +182,18 @@ def decode(circuit, detector_events):
     if events.dtype.kind not in "biu" or np.any((events != 0) & (events != 1)):
         raise ValueError("detector_events must contain binary integers or booleans")
     kernel, fallback, models = load_model()
-    directions = models.get(circuit_digest(circuit))
-    if directions is None:
+    model = models.get(circuit_digest(circuit))
+    if model is None:
         raise ValueError("Circuit fingerprint is unfamiliar to this checkpoint")
     if not len(events):
         return np.empty((0, 4), dtype=np.uint8)
-    if len(directions) == 1:
+    version, directions = model
+    if version == 1:
         result = _decode_temporal(events, directions[0], kernel)
+    elif version == 3:
+        result = logical_decisions(_decode_temporal(events, directions[0], kernel, midpoint=True))
     else:
-        forward = _decode_temporal(events, directions[0], kernel, return_moments=True)
-        reverse = _decode_temporal(events, directions[1], kernel, return_moments=True)
-        result = logical_decisions(forward + reverse)
+        result = _bidirectional(events, directions, kernel, adaptive=version == 4)
     unknown = result < 0
     rows = unknown.any(axis=1)
     if rows.any():
