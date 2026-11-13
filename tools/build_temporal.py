@@ -19,7 +19,7 @@ import numpy as np
 import stim
 
 from stage01_support import load_circuits, problem_info, sha256, write_json
-from temporal_decoder.decoder import EDGE, EXPANDED_FANOUT, FANOUT, ROUND_SIZES, circuit_digest, load_kernel
+from temporal_decoder.decoder import BACK_EDGE, DEEP_FANOUT, EDGE, EXPANDED_FANOUT, FANOUT, ROUND_SIZES, circuit_digest, load_kernel
 
 
 CANDIDATE = "temporal_v1"
@@ -31,6 +31,10 @@ SUFFIX = "temporal_suffix_v1"
 LOOKAHEAD = "temporal_lookahead_v1"
 READOUT = "temporal_readout_v1"
 EXPANDED = "temporal_expanded_v1"
+BACKWARD = "temporal_backward_v1"
+DEEP = "temporal_deep_v1"
+SHIFTED = "temporal_shifted_v1"
+COVERAGE = "temporal_coverage_v1"
 CHECKPOINT = ROOT / "artifacts/checkpoints" / CANDIDATE
 FALLBACK = ROOT / "artifacts/checkpoints/parity_v1"
 
@@ -51,7 +55,15 @@ def projected_masks(checks, indexes):
     return shifts @ checks[indexes].astype(np.uint32)
 
 
-def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None, reuse=None, expanded=False):
+def assigned_slices(earliest, latest, *, shifted):
+    if not shifted:
+        return earliest
+    move = (earliest == latest) & (earliest >= 1) & (earliest <= 4)
+    return earliest - move
+
+
+def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None, reuse=None,
+                   width=FANOUT, shifted=False):
     information = problem_info(circuit)
     checks, logicals, probabilities = information["H"], information["L"], information["p"]
     if not np.isfinite(probabilities).all() or np.any((probabilities < 0) | (probabilities >= 0.5)):
@@ -67,9 +79,11 @@ def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None
     if np.any(earliest > latest) or np.any(latest - earliest > 1):
         raise ValueError(f"Fault mechanism is not supported on one or two neighboring slices in {basis}")
     logical = projected_masks(logicals, list(range(4)))
+    expanded = width != FANOUT
+    earliest = assigned_slices(earliest, latest, shifted=shifted)
     masses = []
     for t, indexes in enumerate(groups):
-        if expanded and t >= 4:
+        if (expanded or shifted) and t >= 4:
             break
         selected = earliest == t
         incoming = projected_masks(checks[:, selected], indexes)
@@ -83,7 +97,6 @@ def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None
         else:
             outgoing = projected_masks(checks[:, selected], groups[t + 1])
             tags = np.ascontiguousarray((incoming << 18) | (outgoing << 4) | labels, dtype=np.uint32)
-            width = EXPANDED_FANOUT if expanded else FANOUT
             table = np.zeros((1 << len(indexes), width), dtype=EDGE)
             key = (width, len(indexes), len(groups[t + 1]), tags.tobytes(), p.tobytes())
             edge_name = "expanded_edges" if expanded else "edges"
@@ -174,14 +187,17 @@ def spectral_builder(path, *, suffix=False, lookahead=False):
     return build
 
 
-def generate_suffix(path, prefix, circuit, groups, incumbent, build):
-    for t in range(4):
-        shutil.copyfile(incumbent / f"{prefix}_edges_{t}.npy", path / f"{prefix}_edges_{t}.npy")
-    for t in range(1, 4):
-        shutil.copyfile(incumbent / f"{prefix}_marginal_{t}.npy", path / f"{prefix}_marginal_{t}.npy")
+def generate_suffix(path, prefix, circuit, groups, incumbent, build, *, shifted=False):
+    if not shifted:
+        for t in range(4):
+            shutil.copyfile(incumbent / f"{prefix}_edges_{t}.npy", path / f"{prefix}_edges_{t}.npy")
+        for t in range(1, 4):
+            shutil.copyfile(incumbent / f"{prefix}_marginal_{t}.npy", path / f"{prefix}_marginal_{t}.npy")
     data = problem_info(circuit)
     early = np.concatenate(groups[:4])
     selected = ~data["H"][early].any(axis=0)
+    if shifted:
+        selected &= ~(data["H"][groups[4]].any(axis=0) & ~data["H"][groups[5]].any(axis=0))
     incoming = projected_masks(data["H"][:, selected], groups[4])
     outgoing = projected_masks(data["H"][:, selected], groups[5])
     labels = projected_masks(data["L"][:, selected], list(range(4)))
@@ -228,6 +244,23 @@ def generate_lookahead(path, prefix, circuit, groups, build, reuse):
         print(f"{prefix} step {t}: stored second-parity mass {marginal[parities].sum():.6f}", flush=True)
 
 
+def generate_backward(path, prefix):
+    table = np.load(path / f"{prefix}_expanded_edges_3.npy", mmap_mode="r", allow_pickle=False)
+    incoming, index = np.nonzero(table["mass"][:, :, 0] > 0)
+    outgoing = table["outgoing"][incoming, index]
+    order = np.argsort(outgoing, kind="stable")
+    counts = np.bincount(outgoing, minlength=1 << 14)
+    offsets = np.r_[0, counts.cumsum()].astype(np.uint32)
+    edges = np.empty(len(order), dtype=BACK_EDGE)
+    edges["incoming"] = incoming[order]
+    edges["mass"] = table["mass"][incoming[order], index[order], 0]
+    mass = np.load(path / f"{prefix}_suffix_mass.npy", mmap_mode="r", allow_pickle=False)
+    residuals = np.argsort(-mass.reshape(-1, 128).T, axis=1, kind="stable")[:, :65].astype(np.uint16)
+    for suffix, array in (("offsets", offsets), ("edges", edges), ("residuals", residuals)):
+        np.save(path / f"{prefix}_back_{suffix}.npy", array, allow_pickle=False)
+    print(f"{prefix}: indexed {len(edges):,} incoming transitions", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group()
@@ -238,15 +271,21 @@ def main():
     modes.add_argument("--suffix", action="store_true")
     modes.add_argument("--lookahead", action="store_true")
     modes.add_argument("--expanded", action="store_true")
+    modes.add_argument("--backward", action="store_true")
+    modes.add_argument("--deep", action="store_true")
+    modes.add_argument("--shifted", action="store_true")
+    modes.add_argument("--coverage", action="store_true")
     args = parser.parse_args()
-    modes = {name: candidate for name, candidate in (("expanded", EXPANDED), ("lookahead", LOOKAHEAD), ("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
+    modes = {name: candidate for name, candidate in (("coverage", COVERAGE), ("shifted", SHIFTED), ("deep", DEEP), ("backward", BACKWARD), ("expanded", EXPANDED), ("lookahead", LOOKAHEAD), ("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
                                                     ("bidirectional", BIDIRECTIONAL))}
     candidate = next((value for name, value in modes.items() if getattr(args, name)), CANDIDATE)
     destination = CHECKPOINT.parent / candidate
     design = {CANDIDATE: "STAGE04_TEMPORAL_EXPERIMENT.md", BIDIRECTIONAL: "BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
               MIDPOINT: "MIDPOINT_TEMPORAL_EXPERIMENT.md", ADAPTIVE: "ADAPTIVE_BEAM_EXPERIMENT.md",
               SPECTRAL: "SPECTRAL_TEMPORAL_EXPERIMENT.md", SUFFIX: "EXACT_SUFFIX_EXPERIMENT.md",
-              LOOKAHEAD: "TWO_SLICE_LOOKAHEAD_EXPERIMENT.md", EXPANDED: "EXPANDED_TRANSITIONS_EXPERIMENT.md"}[candidate]
+              LOOKAHEAD: "TWO_SLICE_LOOKAHEAD_EXPERIMENT.md", EXPANDED: "EXPANDED_TRANSITIONS_EXPERIMENT.md",
+              BACKWARD: "BACKWARD_LIKELIHOOD_EXPERIMENT.md", DEEP: "DEEP_TRANSITIONS_EXPERIMENT.md",
+              SHIFTED: "SHIFTED_FAULTS_EXPERIMENT.md", COVERAGE: "RETRY_COVERAGE_EXPERIMENT.md"}[candidate]
     start = time.perf_counter()
     if destination.exists():
         raise FileExistsError(destination)
@@ -258,8 +297,10 @@ def main():
             raise ValueError(f"Parity fallback changed: {name}")
     audit = json.loads((ROOT / "artifacts/stage01/report.json").read_text())
     predecessor = CHECKPOINT.parent / BIDIRECTIONAL if candidate in (MIDPOINT, ADAPTIVE, SPECTRAL, SUFFIX) else CHECKPOINT
-    if args.lookahead or args.expanded:
+    if args.lookahead or args.expanded or args.deep:
         predecessor = CHECKPOINT.parent / SUFFIX
+    if args.backward or args.shifted or args.coverage:
+        predecessor = CHECKPOINT.parent / EXPANDED
     incumbent = json.loads((predecessor / "provenance.json").read_text()) if candidate != CANDIDATE else None
     if incumbent:
         for name, digest in incumbent["files"].items():
@@ -280,8 +321,8 @@ def main():
             shutil.copyfile(FALLBACK / name, path / "parity_fallback" / name)
         subprocess.run([*compile_args, "kernel.cpp", "-o", "kernel.so"], cwd=path, check=True)
         kernel = load_kernel(path / "kernel.so")
-        spectral = (spectral_builder(Path(temp), suffix=args.suffix, lookahead=args.lookahead)
-                    if (args.spectral or args.suffix or args.lookahead) else None)
+        spectral = (spectral_builder(Path(temp), suffix=args.suffix or args.shifted, lookahead=args.lookahead)
+                    if (args.spectral or args.suffix or args.lookahead or args.shifted) else None)
         if spectral is not None:
             shutil.copyfile(source / "spectral.cpp", path / "spectral.cpp")
         fingerprints, detector_groups, retained_mass, reuse = {}, {}, {}, {}
@@ -289,7 +330,7 @@ def main():
             fingerprints[basis] = circuit_digest(circuit)
             if fingerprints[basis] != audit["circuits"][basis]["canonical_circuit_sha256"]:
                 raise ValueError(f"Audited circuit changed: {basis}")
-            if args.lookahead or args.expanded:
+            if args.lookahead or args.expanded or args.backward or args.deep or args.shifted or args.coverage:
                 groups = previous_metadata["detector_groups"][basis]
                 detector_groups[basis] = groups
                 for name in incumbent["files"]:
@@ -297,9 +338,23 @@ def main():
                         shutil.copyfile(predecessor / name, path / name)
                 for prefix, ordered in ((basis, groups), (f"{basis}_reverse", groups[::-1])):
                     retained_mass[prefix] = incumbent["retained_mass_by_slice"][prefix]
-                    if args.expanded:
+                    if args.coverage:
+                        retained_mass[f"{prefix}_expanded"] = incumbent["retained_mass_by_slice"][f"{prefix}_expanded"]
+                    elif args.shifted:
+                        retained_mass[f"{prefix}_expanded"] = incumbent["retained_mass_by_slice"][f"{prefix}_expanded"]
+                        alt = f"{prefix}_shifted"
+                        built_groups, retained_mass[alt] = generate_basis(
+                            path, alt, circuit, kernel, reverse=prefix.endswith("_reverse"), reuse=reuse, shifted=True)
+                        if built_groups != ordered:
+                            raise ValueError(f"Shifted detector groups changed for {prefix}")
+                        generate_suffix(path, alt, circuit, ordered, predecessor, spectral, shifted=True)
+                    elif args.backward:
+                        retained_mass[f"{prefix}_expanded"] = incumbent["retained_mass_by_slice"][f"{prefix}_expanded"]
+                        generate_backward(path, prefix)
+                    elif args.expanded or args.deep:
+                        width = DEEP_FANOUT if args.deep else EXPANDED_FANOUT
                         built_groups, retained_mass[f"{prefix}_expanded"] = generate_basis(
-                            path, prefix, circuit, kernel, reverse=prefix.endswith("_reverse"), reuse=reuse, expanded=True)
+                            path, prefix, circuit, kernel, reverse=prefix.endswith("_reverse"), reuse=reuse, width=width)
                         if built_groups != ordered:
                             raise ValueError(f"Expanded detector groups changed for {prefix}")
                     else:
@@ -338,7 +393,8 @@ def main():
                 detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
         assets = {str(file.relative_to(path)): sha256(file) for file in sorted(path.rglob("*")) if file.is_file()}
         version = {CANDIDATE: 1, BIDIRECTIONAL: 2, MIDPOINT: 3, ADAPTIVE: 4,
-                   SPECTRAL: 2, SUFFIX: 5, LOOKAHEAD: 6, EXPANDED: 8}[candidate]
+                   SPECTRAL: 2, SUFFIX: 5, LOOKAHEAD: 6, EXPANDED: 8, BACKWARD: 9, DEEP: 10,
+                   SHIFTED: 11, COVERAGE: 12}[candidate]
         write_json(path / "model.json", {"format_version": version, "canonical_circuit_sha256": fingerprints,
                                         "detector_groups": detector_groups, "assets": assets})
         elapsed = time.perf_counter() - start

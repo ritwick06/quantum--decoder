@@ -35,6 +35,17 @@ struct RankedLink {
     double score;
 };
 
+struct BackEdge {
+    std::uint32_t incoming;
+    float mass;
+};
+
+struct BackwardIndex {
+    const std::uint32_t* offsets;
+    const BackEdge* edges;
+    const std::uint16_t* residuals;
+};
+
 bool earlier(const RankedLink& left, const RankedLink& right) {
     if (left.score != right.score) return left.score > right.score;
     return left.boundary < right.boundary;
@@ -217,25 +228,46 @@ namespace {
 int decode_suffix(const std::uint16_t* observed, std::size_t shots,
                   const Edge* const* tables, const double* const* marginals,
                   const float* suffix, const float* const* joints,
-                  const std::int16_t* const* indexes, double* output, unsigned edge_width = fanout) {
+                  const std::int16_t* const* indexes, double* output, unsigned edge_width = fanout,
+                  const BackwardIndex* backward = nullptr, int state_width = beam_width) {
     try {
         Scratch scratch;
+        std::vector<double> tail(backward ? 1u << out_bits : 0u);
         for (std::size_t shot = 0; shot < shots; ++shot) {
             const auto* syndrome = observed + 6 * shot;
             Beam beam;
             for (int t = 0; t < 3 && beam.count; ++t) {
                 const auto next = syndrome[t + 1];
                 const auto row = indexes ? indexes[t][syndrome[t + 2]] : -1;
-                if (row >= 0) {
+                if (backward && t == 2) {
+                    constexpr unsigned kept = 64;
+                    const auto last = syndrome[5];
+                    const auto* parities = backward->residuals + last * (kept + 1);
+                    const double floor = marginals[3][(parities[kept] << 7) | last];
+                    std::fill(tail.begin(), tail.end(), 0.0);
+                    for (unsigned i = 0; i < kept; ++i) {
+                        const auto residual = parities[i];
+                        const auto outgoing = residual ^ syndrome[4];
+                        const double weight = marginals[3][(residual << 7) | last];
+                        for (auto j = backward->offsets[outgoing]; j < backward->offsets[outgoing + 1]; ++j) {
+                            const auto edge = backward->edges[j];
+                            tail[edge.incoming] += edge.mass * weight;
+                        }
+                    }
+                    scratch.advance_ranked(beam, tables[t], syndrome[t], state_width, [&](unsigned boundary) {
+                        const auto incoming = boundary ^ next;
+                        return tail[incoming] + floor * marginals[t][incoming];
+                    }, edge_width);
+                } else if (row >= 0) {
                     const auto* joint = joints[t] + (std::size_t(row) << out_bits);
-                    scratch.advance_ranked(beam, tables[t], syndrome[t], beam_width,
+                    scratch.advance_ranked(beam, tables[t], syndrome[t], state_width,
                                            [=](unsigned boundary) { return joint[boundary ^ next]; });
                 } else {
-                    scratch.advance(beam, tables[t], marginals[t], syndrome[t], next, beam_width, 0, 0, edge_width);
+                    scratch.advance(beam, tables[t], marginals[t], syndrome[t], next, state_width, 0, 0, edge_width);
                 }
             }
             scratch.advance(beam, tables[3], marginals[3], syndrome[3], syndrome[4],
-                            beam_width, 7, syndrome[5], edge_width);
+                            state_width, 7, syndrome[5], edge_width);
             Mass posterior{};
             for (int i = 0; i < beam.count; ++i) {
                 const auto& state = beam.links[i];
@@ -262,6 +294,21 @@ extern "C" int temporal_expanded_moments(const std::uint16_t* observed, std::siz
                                          const Edge* const* tables, const double* const* marginals,
                                          const float* suffix, double* output) {
     return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output, 96);
+}
+
+extern "C" int temporal_backward_moments(const std::uint16_t* observed, std::size_t shots,
+                                         const Edge* const* tables, const double* const* marginals,
+                                         const float* suffix, const std::uint32_t* offsets,
+                                         const BackEdge* edges, const std::uint16_t* residuals,
+                                         double* output) {
+    const BackwardIndex backward{offsets, edges, residuals};
+    return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output, 96, &backward);
+}
+
+extern "C" int temporal_deep_moments(const std::uint16_t* observed, std::size_t shots,
+                                     const Edge* const* tables, const double* const* marginals,
+                                     const float* suffix, double* output) {
+    return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output, 192, nullptr, 48);
 }
 
 extern "C" int temporal_lookahead_moments(const std::uint16_t* observed, std::size_t shots,

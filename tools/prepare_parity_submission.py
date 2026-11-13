@@ -37,7 +37,9 @@ def main():
     if not report["passed"] or report["checkpoint_provenance_sha256"] != checkpoint_hash:
         raise ValueError("This checkpoint has no passing frozen-validation report")
     if args.candidate in (evaluate_temporal.SPECTRAL, evaluate_temporal.SUFFIX,
-                          evaluate_temporal.LOOKAHEAD, evaluate_temporal.READOUT, evaluate_temporal.EXPANDED):
+                          evaluate_temporal.LOOKAHEAD, evaluate_temporal.READOUT,
+                          evaluate_temporal.EXPANDED, evaluate_temporal.BACKWARD, evaluate_temporal.DEEP,
+                          evaluate_temporal.SHIFTED, evaluate_temporal.COVERAGE):
         confirmation_path = evidence_folder / "confirmation.json"
         confirmation = json.loads(confirmation_path.read_text())
         expected_checkpoints = confirmation["checkpoint_provenance_sha256"]

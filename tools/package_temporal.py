@@ -11,7 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from evaluate_temporal import checkpoint_decoder, locations
 from stage01_support import ROOT, sha256, write_json
-from tools.build_temporal import BIDIRECTIONAL, EXPANDED, LOOKAHEAD, READOUT, SPECTRAL, SUFFIX
+from tools.build_temporal import BACKWARD, BIDIRECTIONAL, COVERAGE, DEEP, EXPANDED, LOOKAHEAD, READOUT, SHIFTED, SPECTRAL, SUFFIX
 
 
 REPRODUCTION_SOURCES = (
@@ -23,7 +23,9 @@ REPRODUCTION_SOURCES = (
     "docs/DESIGN_DECISIONS.md", "docs/STAGE04_TEMPORAL_EXPERIMENT.md", "docs/BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
     "docs/SPECTRAL_TEMPORAL_EXPERIMENT.md", "docs/EXACT_SUFFIX_EXPERIMENT.md",
     "docs/TWO_SLICE_LOOKAHEAD_EXPERIMENT.md", "docs/AMBIGUOUS_READOUT_EXPERIMENT.md",
-    "docs/EXPANDED_TRANSITIONS_EXPERIMENT.md",
+    "docs/EXPANDED_TRANSITIONS_EXPERIMENT.md", "docs/BACKWARD_LIKELIHOOD_EXPERIMENT.md",
+    "docs/DEEP_TRANSITIONS_EXPERIMENT.md", "docs/SHIFTED_FAULTS_EXPERIMENT.md",
+    "docs/RETRY_COVERAGE_EXPERIMENT.md",
 )
 
 
@@ -65,7 +67,9 @@ def hand_in_readme(candidate, manifest):
     digest = manifest["validation"]["sha256"]
     modes = {SPECTRAL: ("--spectral",), SUFFIX: ("--suffix",),
              LOOKAHEAD: ("--suffix", "--lookahead"), READOUT: ("--suffix",),
-             EXPANDED: ("--suffix", "--expanded")}.get(candidate, ())
+             EXPANDED: ("--suffix", "--expanded"), BACKWARD: ("--suffix", "--expanded", "--backward"),
+             DEEP: ("--suffix", "--deep"), SHIFTED: ("--suffix", "--expanded", "--shifted"),
+             COVERAGE: ("--suffix", "--expanded", "--coverage")}.get(candidate, ())
     extra_build = "".join(f"\nOPENBLAS_NUM_THREADS=1 python tools/build_temporal.py {mode}" for mode in modes)
     if candidate == READOUT:
         extra_build += "\nOPENBLAS_NUM_THREADS=1 python tools/train_temporal_readout.py"
@@ -130,7 +134,8 @@ if verified["sha256"] != sys.argv[4]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX, LOOKAHEAD, READOUT, EXPANDED), required=True)
+    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX, LOOKAHEAD, READOUT, EXPANDED, BACKWARD, DEEP, SHIFTED, COVERAGE),
+                        required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()

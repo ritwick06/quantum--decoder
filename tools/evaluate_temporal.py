@@ -1,6 +1,7 @@
 """Evaluate the preregistered temporal candidate on the frozen holdout."""
 
 import argparse
+import gc
 import importlib.util
 import json
 from pathlib import Path
@@ -13,7 +14,7 @@ from evaluate_parity import ROOT, input_data, predict, prediction_hashes, checkp
 import numpy as np
 
 from stage01_support import sha256, write_json
-from tools.build_temporal import ADAPTIVE, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, EXPANDED, LOOKAHEAD, MIDPOINT, READOUT, SPECTRAL, SUFFIX
+from tools.build_temporal import ADAPTIVE, BACKWARD, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, COVERAGE, DEEP, EXPANDED, LOOKAHEAD, MIDPOINT, READOUT, SHIFTED, SPECTRAL, SUFFIX
 
 
 EVIDENCE = ROOT / "artifacts/stage04"
@@ -28,6 +29,10 @@ EXPERIMENTS = {
     LOOKAHEAD: ("lookahead", SUFFIX, 36),
     READOUT: ("readout", SUFFIX, 37),
     EXPANDED: ("expanded", SUFFIX, 38),
+    BACKWARD: ("backward", EXPANDED, 39),
+    DEEP: ("deep", EXPANDED, 40),
+    SHIFTED: ("shifted", EXPANDED, 41),
+    COVERAGE: ("coverage", EXPANDED, 41),
 }
 
 
@@ -70,6 +75,12 @@ def evaluate(decoder, provenance, candidate=CANDIDATE):
     incumbent_bits = predict(incumbent, circuits, data)
     if prediction_hashes(incumbent_bits) != previous["prediction_sha256"]:
         raise ValueError("Incumbent predictions differ from their frozen report")
+    if candidate in (DEEP, SHIFTED, COVERAGE):
+        load_model = incumbent.__globals__.get("load_model")
+        if load_model is not None:
+            load_model.cache_clear()
+        del incumbent, load_model
+        gc.collect()
     for basis in "XZ":
         decoder(circuits[basis], data[basis][0][:0])
     reference, runs = None, []

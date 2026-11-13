@@ -11,7 +11,7 @@ import stim
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
 from temporal_decoder import readout
-from tools.build_temporal import ADAPTIVE, CHECKPOINT, EXPANDED, LOOKAHEAD, MIDPOINT, SUFFIX, spectral_builder, xor_moments
+from tools.build_temporal import ADAPTIVE, BACKWARD, CHECKPOINT, DEEP, EXPANDED, LOOKAHEAD, MIDPOINT, SUFFIX, assigned_slices, spectral_builder, xor_moments
 
 
 class TemporalTests(unittest.TestCase):
@@ -243,6 +243,61 @@ class TemporalTests(unittest.TestCase):
         )
         self.assertEqual(status, 0)
         np.testing.assert_array_equal(actual, [[0.5, -0.5, 0.5, 0.5, 0.5]])
+
+    def test_backward_likelihood_accounts_for_the_last_transition_before_pruning(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / BACKWARD / "kernel.so")
+        width = decoder.EXPANDED_FANOUT
+        tables = [np.zeros((64, width), dtype=decoder.EDGE) for _ in range(4)]
+        for table in tables[:2]:
+            table[0, 0] = (0, [1] * 5)
+        for mask in range(32):
+            tables[2][0, mask] = (mask, [1] * 5)
+        tables[2][0, 32] = (32, [0.5, -0.5, 0.5, 0.5, 0.5])
+        tables[3][32, 0] = (1, [0.25, 0.25, -0.25, 0.25, 0.25])
+        suffix = np.zeros((65 * 128, 5), dtype=np.float32)
+        suffix[128] = [0.5] * 5
+        marginals = [np.ones(64) for _ in range(3)] + [suffix[:, 0].astype(np.float64)]
+        offsets = np.array([0, 0, *([1] * 64)], dtype=np.uint32)
+        incoming = np.array([(32, 0.25)], dtype=decoder.BACK_EDGE)
+        residuals = np.array([1, 0, *range(2, 65)], dtype=np.uint16)
+        table_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((1, 6), dtype=np.uint16)
+        actual = np.empty((1, 5), dtype=np.float64)
+        status = kernel.temporal_backward_moments(
+            observed.ctypes.data, 1, table_ptrs, marginal_ptrs, suffix.ctypes.data,
+            offsets.ctypes.data, incoming.ctypes.data, residuals.ctypes.data, actual.ctypes.data,
+        )
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, [[0.0625, -0.0625, -0.0625, 0.0625, 0.0625]])
+
+    def test_deep_kernel_keeps_a_path_in_the_wider_beam_and_table(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / DEEP / "kernel.so")
+        width = decoder.DEEP_FANOUT
+        tables = [np.zeros((128, width), dtype=decoder.EDGE) for _ in range(4)]
+        for mask in range(40):
+            tables[0][0, mask] = (mask, [1] * 5)
+        tables[1][39, :100] = (1, [1] * 5)
+        tables[1][39, 100] = (0, [0.5, -0.5, 0.5, 0.5, 0.5])
+        for table in tables[2:]:
+            table[0, 0] = (0, [1] * 5)
+        terminal = np.ones((128, 5), dtype=np.float32)
+        marginals = [np.ones(128) for _ in range(4)]
+        table_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((1, 6), dtype=np.uint16)
+        actual = np.empty((1, 5), dtype=np.float64)
+        status = kernel.temporal_deep_moments(observed.ctypes.data, 1, table_ptrs, marginal_ptrs,
+                                             terminal.ctypes.data, actual.ctypes.data)
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, [[0.5, -0.5, 0.5, 0.5, 0.5]])
+
+    def test_shifted_assignment_moves_only_interior_single_slice_faults(self):
+        earliest = np.array([0, 0, 1, 1, 2, 3, 4, 4, 5])
+        latest = np.array([0, 1, 1, 2, 2, 3, 4, 5, 5])
+        np.testing.assert_array_equal(
+            assigned_slices(earliest, latest, shifted=True), [0, 0, 0, 1, 1, 2, 3, 4, 5],
+        )
 
     def test_wide_beam_recovers_a_path_pruned_by_narrow_beam(self):
         kernel = decoder.load_kernel(CHECKPOINT.parent / ADAPTIVE / "kernel.so")
