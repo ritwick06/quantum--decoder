@@ -1,0 +1,62 @@
+{
+  "candidate": "temporal_readout_v1",
+  "checkpoint_provenance_sha256": "a37e4e74ffd8a08bd8bff6bb94bae4512465b1cbc5dde4ca878ee54d13018078",
+  "validation_manifest_sha256": "4a8df2e10c37df7119d962399ce25f325306ff0c33c48e5ad37adb66c6a090cb",
+  "incumbent": "temporal_suffix_v1",
+  "incumbent_ler": {
+    "X": 0.0346675,
+    "Z": 0.033445
+  },
+  "incumbent_combined_ler": 0.03405625,
+  "ler": {
+    "X": 0.0346075,
+    "Z": 0.0334175
+  },
+  "combined_ler": 0.0340125,
+  "errors": {
+    "X": 13843,
+    "Z": 13367
+  },
+  "paired_gain": 4.375e-05,
+  "paired_gain_ci95": [
+    -1.8873744441655382e-06,
+    8.938737444416554e-05
+  ],
+  "dense": {
+    "X": {
+      "shots": 54718,
+      "incumbent_errors": 11943,
+      "candidate_errors": 11921
+    },
+    "Z": {
+      "shots": 53748,
+      "incumbent_errors": 11552,
+      "candidate_errors": 11541
+    }
+  },
+  "dense_gain": 7.60607010491767e-05,
+  "runs_seconds": [
+    12.076301896006044,
+    10.968313582998235,
+    11.937303938000696,
+    10.851824762001343,
+    10.592539381999813
+  ],
+  "median_seconds": 10.968313582998235,
+  "peak_rss_bytes": 1036591104,
+  "penalized_ler_local_sensitivity": 0.0340125,
+  "prediction_sha256": {
+    "X": "b75599ee9d05bb6b62fe774fcff5fc26664edbc2adde262c32167f257249d1fb",
+    "Z": "0c8bf6c7ae54f8fada3caf480c4450c84a78b5c674dc8082891606dcd8fd4cab"
+  },
+  "tests_passed": 37,
+  "gates": {
+    "ler_gain": true,
+    "paired_interval": false,
+    "runtime": true,
+    "peak_rss": true,
+    "penalized_ler_sensitivity": true,
+    "build_resources": true
+  },
+  "passed": false
+}

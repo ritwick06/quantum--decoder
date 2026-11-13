@@ -1,0 +1,38 @@
+{
+  "candidate": "temporal_readout_v1",
+  "incumbent": "temporal_suffix_v1",
+  "stim_version": "1.16.0",
+  "checkpoint_provenance_sha256": {
+    "temporal_readout_v1": "a37e4e74ffd8a08bd8bff6bb94bae4512465b1cbc5dde4ca878ee54d13018078",
+    "temporal_suffix_v1": "93a459f40262aeca95470f3874d28083e20f15478c00b14dc321cb1aa3c1acef"
+  },
+  "bases": {
+    "X": {
+      "seed": 2026111351,
+      "shots": 250000,
+      "detectors_sha256": "58b9c28b997500d300ce99228097164f514f28e4d035f1b40902e21cbcc2bf14",
+      "labels_sha256": "b1196817e53890ead3da9228bbb9a247bcc2b523fc0f83d1dbdc78bb96b3b805",
+      "incumbent_errors": 35175,
+      "candidate_errors": 35148,
+      "paired_gain": 2.7e-05,
+      "paired_variance": 0.000113749725998904
+    },
+    "Z": {
+      "seed": 2026111352,
+      "shots": 250000,
+      "detectors_sha256": "8c6207c29a3b491cb60deb811b5c3480a5ec7a8fff38f9eddfea36bef1733c44",
+      "labels_sha256": "14ed46f93741b62e1f57f5036acdc373d4b613e0fd2b0ad8c36704964da7eeab",
+      "incumbent_errors": 33007,
+      "candidate_errors": 32998,
+      "paired_gain": 9e-06,
+      "paired_variance": 7.6250224000896e-05
+    }
+  },
+  "paired_gain": 1.8e-05,
+  "paired_gain_ci95": [
+    -9.01623556045761e-06,
+    4.501623556045761e-05
+  ],
+  "passed": false,
+  "recorded_utc": "2026-11-13T17:07:31.203071+00:00"
+}

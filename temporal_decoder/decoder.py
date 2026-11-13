@@ -36,6 +36,10 @@ def load_kernel(path):
         if infer is not None:
             infer.argtypes = library.temporal_decode.argtypes
             infer.restype = ctypes.c_int
+    lookahead = getattr(library, "temporal_lookahead_moments", None)
+    if lookahead is not None:
+        lookahead.argtypes = library.temporal_decode.argtypes + [pointer, pointer]
+        lookahead.restype = ctypes.c_int
     return library
 
 
@@ -48,7 +52,7 @@ def load_model():
     try:
         metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
         version = metadata["format_version"]
-        if version not in (1, 2, 3, 4, 5):
+        if version not in (1, 2, 3, 4, 5, 6, 7):
             raise ValueError("Unsupported temporal model format")
         for name, expected in metadata["assets"].items():
             if digest(HERE / name) != expected:
@@ -64,9 +68,11 @@ def load_model():
             if version == 3:
                 models[fingerprint] = version, (_load_midpoint(basis, groups),)
                 continue
-            if version == 5:
-                models[fingerprint] = version, (_load_suffix(basis, groups),
-                                                _load_suffix(f"{basis}_reverse", groups[::-1]))
+            if version in (5, 6, 7):
+                models[fingerprint] = version, (
+                    _load_suffix(basis, groups, lookahead=version == 6),
+                    _load_suffix(f"{basis}_reverse", groups[::-1], lookahead=version == 6),
+                )
                 continue
             directions = [_load_direction(basis, groups)]
             if version in (2, 4):
@@ -112,7 +118,7 @@ def _load_midpoint(basis, groups):
     return groups, tables, marginals, middle
 
 
-def _load_suffix(prefix, groups):
+def _load_suffix(prefix, groups, *, lookahead=False):
     _check_groups(groups)
     tables = tuple(_load_array(f"{prefix}_edges_{t}", (1 << size, FANOUT), EDGE)
                    for t, size in enumerate(ROUND_SIZES[:4]))
@@ -120,6 +126,13 @@ def _load_suffix(prefix, groups):
                       for t, size in enumerate(ROUND_SIZES[1:4], start=1))
     marginals += (_load_array(f"{prefix}_suffix_mass", (1 << 21,), np.float64),)
     terminal = _load_array(f"{prefix}_suffix", (1 << 21, 5), np.float32)
+    if lookahead:
+        joints = tuple(_load_array(f"{prefix}_lookahead_{t}", (128, 1 << 14), np.float32) for t in range(3))
+        indexes = tuple(_load_array(f"{prefix}_lookahead_index_{t}", (1 << 14,), np.int16) for t in range(3))
+        for index in indexes:
+            if np.any(index < -1) or not np.array_equal(np.sort(index[index >= 0]), np.arange(128)):
+                raise ValueError(f"Invalid joint parity indexes for {prefix}")
+        return groups, tables, marginals, terminal, joints, indexes
     return groups, tables, marginals, terminal
 
 
@@ -132,7 +145,7 @@ def observed_slices(events, groups):
 
 
 def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False, wide=False, suffix=False):
-    groups, tables, marginals, terminal = model
+    groups, tables, marginals, terminal, *lookahead = model
     observed = observed_slices(events, groups)
     table_pointers = (ctypes.c_void_p * len(tables))(*(table.ctypes.data for table in tables))
     marginal_pointers = (ctypes.c_void_p * len(marginals))(*(marginal.ctypes.data for marginal in marginals))
@@ -142,6 +155,8 @@ def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=Fa
             infer = kernel.temporal_midpoint
         elif wide:
             infer = kernel.temporal_wide_moments
+        elif lookahead:
+            infer = kernel.temporal_lookahead_moments
         elif suffix:
             infer = kernel.temporal_suffix_moments
         else:
@@ -150,9 +165,11 @@ def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=Fa
         result = np.empty((len(events), 4), dtype=np.int8)
         infer = kernel.temporal_decode
 
+    extra = [(ctypes.c_void_p * 3)(*(array.ctypes.data for array in arrays)) for arrays in lookahead]
+
     def run(start, stop):
         status = infer(observed[start:].ctypes.data, stop - start, table_pointers,
-                       marginal_pointers, terminal.ctypes.data, result[start:].ctypes.data)
+                       marginal_pointers, terminal.ctypes.data, *extra, result[start:].ctypes.data)
         if status:
             raise RuntimeError("Temporal decoding kernel failed")
 
@@ -190,6 +207,44 @@ def _bidirectional(events, directions, kernel, *, adaptive):
     return result
 
 
+@lru_cache(maxsize=2)
+def _load_readout(fingerprint):
+    metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
+    name = "readout.npz"
+    if digest(HERE / name) != metadata["assets"][name]:
+        raise ValueError("Readout asset checksum mismatch")
+    spec = importlib.util.spec_from_file_location("temporal_readout", HERE / "readout.py")
+    features = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(features)
+    with np.load(HERE / name, allow_pickle=False) as weights:
+        coefficients = weights[fingerprint]
+    if coefficients.shape != (4, 27) or not np.isfinite(coefficients).all():
+        raise ValueError("Invalid readout coefficients")
+    return features, coefficients
+
+
+def _calibrated_readout(circuit, events, groups, fallback, forward, reverse, initial):
+    features, weights = _load_readout(circuit_digest(circuit))
+    prepared = features.direction_features(forward, reverse)
+    uncertain = prepared[-1]
+    active = uncertain.any(axis=1)
+    if not active.any():
+        return initial
+    parity = fallback(circuit, events[active])
+    compact = tuple(array[active] for array in prepared)
+    counts = np.column_stack([events[active][:, group].sum(axis=1) for group in groups])
+    replacement = initial[active].copy()
+    for bit in range(4):
+        rows = compact[-1][:, bit]
+        if rows.any():
+            design = features.feature_columns(compact, counts, parity, rows, bit)
+            # Accumulate in fixed feature order across all batch sizes.
+            logits = weights[bit, 0] + (design * weights[bit, 1:]).sum(axis=1)
+            replacement[rows, bit] = np.where(np.abs(logits) > 0.08, logits > 0, replacement[rows, bit])
+    initial[active] = replacement
+    return initial
+
+
 def decode(circuit, detector_events):
     if not isinstance(circuit, stim.Circuit):
         raise TypeError("circuit must be a Stim Circuit")
@@ -209,10 +264,13 @@ def decode(circuit, detector_events):
         result = _decode_temporal(events, directions[0], kernel)
     elif version == 3:
         result = logical_decisions(_decode_temporal(events, directions[0], kernel, midpoint=True))
-    elif version == 5:
+    elif version in (5, 6, 7):
         forward, reverse = directions
-        result = logical_decisions(_decode_temporal(events, forward, kernel, suffix=True)
-                                   + _decode_temporal(events, reverse, kernel, suffix=True))
+        a = _decode_temporal(events, forward, kernel, suffix=True)
+        b = _decode_temporal(events, reverse, kernel, suffix=True)
+        result = logical_decisions(a + b)
+        if version == 7:
+            result = _calibrated_readout(circuit, events, forward[0], fallback, a, b, result)
     else:
         result = _bidirectional(events, directions, kernel, adaptive=version == 4)
     unknown = result < 0

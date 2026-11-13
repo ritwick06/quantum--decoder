@@ -107,25 +107,25 @@ def rank_masks(circuit):
     return groups, selected, len(supports)
 
 
-def objective(design, target, weights):
+def objective(design, target, weights, l2=L2):
     logits = design @ weights
-    return float(np.mean(np.logaddexp(0, logits) - target * logits) + 0.5 * L2 * (weights[1:] @ weights[1:]))
+    return float(np.mean(np.logaddexp(0, logits) - target * logits) + 0.5 * l2 * (weights[1:] @ weights[1:]))
 
 
-def fit_head(design, target):
+def fit_head(design, target, l2=L2):
     count, width = design.shape
     rate = float(target.mean())
     if not 0 < rate < 1:
         raise ValueError("Cannot fit a constant target")
     weights = np.zeros(width, dtype=np.float64)
     weights[0] = np.log(rate / (1 - rate))
-    loss = objective(design, target, weights)
+    loss = objective(design, target, weights, l2)
     initial_loss = loss
     for iteration in range(31):
         logits = design @ weights
         probability = np.exp(-np.logaddexp(0, -logits))
         gradient = design.T @ (probability - target) / count
-        gradient[1:] += L2 * weights[1:]
+        gradient[1:] += l2 * weights[1:]
         norm = float(np.max(np.abs(gradient)))
         if not np.isfinite([norm, loss]).all():
             raise ValueError("Nonfinite logistic optimizer state")
@@ -134,7 +134,7 @@ def fit_head(design, target):
         if iteration == 30:
             raise ValueError(f"Logistic fit did not converge: gradient norm {norm}")
         hessian = design.T @ (design * (probability * (1 - probability))[:, None]) / count
-        hessian.flat[width + 1::width + 1] += L2
+        hessian.flat[width + 1::width + 1] += l2
         step = np.linalg.solve(hessian, gradient)
         descent = float(gradient @ step)
         if not np.isfinite(descent) or descent <= 0:
@@ -142,7 +142,7 @@ def fit_head(design, target):
         for halving in range(21):
             length = 2.0**-halving
             trial = weights - length * step
-            trial_loss = objective(design, target, trial)
+            trial_loss = objective(design, target, trial, l2)
             if np.isfinite(trial_loss) and trial_loss <= loss - 1e-4 * length * descent:
                 weights, loss = trial, trial_loss
                 break

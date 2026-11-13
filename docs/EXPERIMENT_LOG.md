@@ -100,3 +100,11 @@ The full local distributions retained more probability in every table. The impro
 Frozen paired LER improved by 0.000045 with a 95% interval of [0.00000314, 0.00008686]. An independent sample of 500,000 Stim shots confirmed the improvement, with a paired gain of 0.000030 and 95% interval of [0.00000381, 0.00005619]. [Exact final slices experiment](EXACT_SUFFIX_EXPERIMENT.md)
 
 The user's submissions and leaderboard screenshots show `temporal_bidir_v1.csv` and `temporal_suffix_v1.csv` both complete at public LER **0.03415**. PHANTOMS OF QUANTUM remained #8 with three entries. The screenshot shows the bidirectional entry selected for final scoring and the final-slice entry unchecked. [Submission ledger](../artifacts/submissions/ledger.json)
+
+## Stage 04 two-slice lookahead
+
+The local frozen LER was 0.03406250 (X 0.03467500, Z 0.03345000), against 0.03405625 for `temporal_suffix_v1`. The five-run median was 10.56 seconds and all 36 tests passed. The candidate failed the accuracy gate. [Two-slice lookahead experiment](TWO_SLICE_LOOKAHEAD_EXPERIMENT.md)
+
+## Stage 04 calibrated readout for ambiguous bits
+
+The local frozen LER was 0.03401250 (X 0.03460750, Z 0.03341750), a point gain of 0.00004375 over `temporal_suffix_v1`. The paired 95% interval includes zero, so the candidate failed the accuracy gate. Its five-run local median was 10.97 seconds and all 37 tests passed. [Calibrated readout experiment](AMBIGUOUS_READOUT_EXPERIMENT.md)

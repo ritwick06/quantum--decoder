@@ -28,6 +28,8 @@ MIDPOINT = "temporal_midpoint_v1"
 ADAPTIVE = "temporal_adaptive_v1"
 SPECTRAL = "temporal_spectral_v1"
 SUFFIX = "temporal_suffix_v1"
+LOOKAHEAD = "temporal_lookahead_v1"
+READOUT = "temporal_readout_v1"
 CHECKPOINT = ROOT / "artifacts/checkpoints" / CANDIDATE
 FALLBACK = ROOT / "artifacts/checkpoints/parity_v1"
 
@@ -137,7 +139,7 @@ def generate_midpoint(path, basis, circuit, groups, incumbent):
     print(f"{basis}: {middle.sum()} exact middle-slice mechanisms, expected count {p[middle].sum():.6f}", flush=True)
 
 
-def spectral_builder(path, *, suffix=False):
+def spectral_builder(path, *, suffix=False, lookahead=False):
     import ctypes
 
     source = ROOT / "temporal_decoder/spectral.cpp"
@@ -146,9 +148,16 @@ def spectral_builder(path, *, suffix=False):
                "-fopenmp", str(source), "-o", str(library)]
     subprocess.run(command, check=True)
     module = ctypes.CDLL(str(library))
-    build = module.temporal_build_suffix if suffix else module.temporal_build_spectral
+    if lookahead:
+        build = module.temporal_build_lookahead
+    elif suffix:
+        build = module.temporal_build_suffix
+    else:
+        build = module.temporal_build_spectral
     build.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
-    if not suffix:
+    if lookahead:
+        build.argtypes += [ctypes.c_void_p, ctypes.c_uint]
+    elif not suffix:
         build.argtypes += [ctypes.c_uint, ctypes.c_uint]
     build.argtypes += [ctypes.c_void_p]
     build.restype = ctypes.c_int
@@ -176,6 +185,39 @@ def generate_suffix(path, prefix, circuit, groups, incumbent, build):
     print(f"{prefix}: {len(tags)} exact final-slice mechanisms, total mass {result[:, 0].sum(dtype=np.float64):.9f}", flush=True)
 
 
+def generate_lookahead(path, prefix, circuit, groups, build, reuse):
+    data = problem_info(circuit)
+    checks = data["H"]
+    for t in range(3):
+        earlier = np.concatenate(groups[:t + 1])
+        first, second = groups[t + 1:t + 3]
+        selected = ~checks[earlier].any(axis=0) & checks[first + second].any(axis=0)
+        a = projected_masks(checks[:, selected], first)
+        b = projected_masks(checks[:, selected], second)
+        p = np.ascontiguousarray(data["p"][selected])
+        tags = np.ascontiguousarray((b << 18) | (a << 4), dtype=np.uint32)
+        key = (tags.tobytes(), p.tobytes())
+        matrix = path / f"{prefix}_lookahead_{t}.npy"
+        index = path / f"{prefix}_lookahead_index_{t}.npy"
+        if key in reuse:
+            for original, target in zip(reuse[key], (matrix, index), strict=True):
+                shutil.copyfile(original, target)
+            print(f"{prefix} step {t}: reused joint parity table", flush=True)
+            continue
+        marginal = xor_moments(b, np.zeros(len(p), dtype=np.uint8), p, 1 << 14)[:, 0]
+        parities = np.ascontiguousarray(np.argsort(-marginal, kind="stable")[:128], dtype=np.uint16)
+        rank = np.full(1 << 14, -1, dtype=np.int16)
+        rank[parities] = np.arange(len(parities), dtype=np.int16)
+        result = np.empty((len(parities), 1 << 14), dtype=np.float32)
+        if build(tags.ctypes.data, p.ctypes.data, len(tags), parities.ctypes.data,
+                 len(parities), result.ctypes.data):
+            raise RuntimeError(f"Joint parity generation failed for {prefix} step {t}")
+        np.save(matrix, result, allow_pickle=False)
+        np.save(index, rank, allow_pickle=False)
+        reuse[key] = matrix, index
+        print(f"{prefix} step {t}: stored second-parity mass {marginal[parities].sum():.6f}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group()
@@ -184,14 +226,16 @@ def main():
     modes.add_argument("--adaptive", action="store_true")
     modes.add_argument("--spectral", action="store_true")
     modes.add_argument("--suffix", action="store_true")
+    modes.add_argument("--lookahead", action="store_true")
     args = parser.parse_args()
-    modes = {name: candidate for name, candidate in (("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
+    modes = {name: candidate for name, candidate in (("lookahead", LOOKAHEAD), ("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
                                                     ("bidirectional", BIDIRECTIONAL))}
     candidate = next((value for name, value in modes.items() if getattr(args, name)), CANDIDATE)
     destination = CHECKPOINT.parent / candidate
     design = {CANDIDATE: "STAGE04_TEMPORAL_EXPERIMENT.md", BIDIRECTIONAL: "BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
               MIDPOINT: "MIDPOINT_TEMPORAL_EXPERIMENT.md", ADAPTIVE: "ADAPTIVE_BEAM_EXPERIMENT.md",
-              SPECTRAL: "SPECTRAL_TEMPORAL_EXPERIMENT.md", SUFFIX: "EXACT_SUFFIX_EXPERIMENT.md"}[candidate]
+              SPECTRAL: "SPECTRAL_TEMPORAL_EXPERIMENT.md", SUFFIX: "EXACT_SUFFIX_EXPERIMENT.md",
+              LOOKAHEAD: "TWO_SLICE_LOOKAHEAD_EXPERIMENT.md"}[candidate]
     start = time.perf_counter()
     if destination.exists():
         raise FileExistsError(destination)
@@ -203,6 +247,8 @@ def main():
             raise ValueError(f"Parity fallback changed: {name}")
     audit = json.loads((ROOT / "artifacts/stage01/report.json").read_text())
     predecessor = CHECKPOINT.parent / BIDIRECTIONAL if candidate in (MIDPOINT, ADAPTIVE, SPECTRAL, SUFFIX) else CHECKPOINT
+    if args.lookahead:
+        predecessor = CHECKPOINT.parent / SUFFIX
     incumbent = json.loads((predecessor / "provenance.json").read_text()) if candidate != CANDIDATE else None
     if incumbent:
         for name, digest in incumbent["files"].items():
@@ -223,7 +269,8 @@ def main():
             shutil.copyfile(FALLBACK / name, path / "parity_fallback" / name)
         subprocess.run([*compile_args, "kernel.cpp", "-o", "kernel.so"], cwd=path, check=True)
         kernel = load_kernel(path / "kernel.so")
-        spectral = spectral_builder(Path(temp), suffix=args.suffix) if (args.spectral or args.suffix) else None
+        spectral = (spectral_builder(Path(temp), suffix=args.suffix, lookahead=args.lookahead)
+                    if (args.spectral or args.suffix or args.lookahead) else None)
         if spectral is not None:
             shutil.copyfile(source / "spectral.cpp", path / "spectral.cpp")
         fingerprints, detector_groups, retained_mass, reuse = {}, {}, {}, {}
@@ -231,7 +278,16 @@ def main():
             fingerprints[basis] = circuit_digest(circuit)
             if fingerprints[basis] != audit["circuits"][basis]["canonical_circuit_sha256"]:
                 raise ValueError(f"Audited circuit changed: {basis}")
-            if args.suffix:
+            if args.lookahead:
+                groups = previous_metadata["detector_groups"][basis]
+                detector_groups[basis] = groups
+                for name in incumbent["files"]:
+                    if name.startswith(f"{basis}_") and name.endswith(".npy"):
+                        shutil.copyfile(predecessor / name, path / name)
+                for prefix, ordered in ((basis, groups), (f"{basis}_reverse", groups[::-1])):
+                    retained_mass[prefix] = incumbent["retained_mass_by_slice"][prefix]
+                    generate_lookahead(path, prefix, circuit, ordered, spectral, reuse)
+            elif args.suffix:
                 groups = previous_metadata["detector_groups"][basis]
                 detector_groups[basis] = groups
                 for prefix, ordered in ((basis, groups), (f"{basis}_reverse", groups[::-1])):
@@ -264,7 +320,8 @@ def main():
             else:
                 detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
         assets = {str(file.relative_to(path)): sha256(file) for file in sorted(path.rglob("*")) if file.is_file()}
-        version = {CANDIDATE: 1, BIDIRECTIONAL: 2, MIDPOINT: 3, ADAPTIVE: 4, SPECTRAL: 2, SUFFIX: 5}[candidate]
+        version = {CANDIDATE: 1, BIDIRECTIONAL: 2, MIDPOINT: 3, ADAPTIVE: 4,
+                   SPECTRAL: 2, SUFFIX: 5, LOOKAHEAD: 6}[candidate]
         write_json(path / "model.json", {"format_version": version, "canonical_circuit_sha256": fingerprints,
                                         "detector_groups": detector_groups, "assets": assets})
         elapsed = time.perf_counter() - start

@@ -1,0 +1,3 @@
+X: fitted four readouts from 1,000,000 simulated shots
+Z: fitted four readouts from 1,000,000 simulated shots
+Built temporal_readout_v1 in 117.5s with peak RSS 623.3 MiB

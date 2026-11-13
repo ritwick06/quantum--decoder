@@ -153,3 +153,27 @@ extern "C" int temporal_build_suffix(const std::uint32_t* tags, const double* p,
         return 1;
     }
 }
+
+extern "C" int temporal_build_lookahead(const std::uint32_t* tags, const double* p, int count,
+                                       const std::uint16_t* parities, unsigned selected, float* output) {
+    constexpr unsigned width = 1u << 14;
+    for (unsigned row = 0; row < selected; ++row) {
+        if (parities[row] >= width) return 2;
+    }
+    for (int i = 0; i < count; ++i) {
+        if (!(p[i] >= 0 && p[i] < 0.5)) return 2;
+    }
+    try {
+        std::vector<double> work(std::size_t(width) * width);
+        distribution(work, tags, p, count, 14, 0);
+        for (unsigned row = 0; row < selected; ++row) {
+            const double* values = work.data() + std::size_t(parities[row]) * width;
+            for (unsigned i = 0; i < width; ++i) {
+                output[std::size_t(row) * width + i] = values[i] > mass_floor ? float(values[i]) : 0.0f;
+            }
+        }
+        return 0;
+    } catch (...) {
+        return 1;
+    }
+}

@@ -1,0 +1,13 @@
+X step 0: stored second-parity mass 0.802027
+X step 1: stored second-parity mass 0.802027
+X step 2: stored second-parity mass 0.802027
+X_reverse step 0: stored second-parity mass 0.802027
+X_reverse step 1: stored second-parity mass 0.802027
+X_reverse step 2: stored second-parity mass 0.802027
+Z step 0: stored second-parity mass 0.802027
+Z step 1: stored second-parity mass 0.802027
+Z step 2: stored second-parity mass 0.802027
+Z_reverse step 0: stored second-parity mass 0.802027
+Z_reverse step 1: stored second-parity mass 0.802027
+Z_reverse step 2: stored second-parity mass 0.802027
+Built temporal_lookahead_v1 in 182.4s with peak RSS 2118.2 MiB

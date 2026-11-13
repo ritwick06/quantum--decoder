@@ -11,16 +11,18 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from evaluate_temporal import checkpoint_decoder, locations
 from stage01_support import ROOT, sha256, write_json
-from tools.build_temporal import BIDIRECTIONAL, SPECTRAL, SUFFIX
+from tools.build_temporal import BIDIRECTIONAL, LOOKAHEAD, READOUT, SPECTRAL, SUFFIX
 
 
 REPRODUCTION_SOURCES = (
     "requirements.txt", "stage01_support.py", "tools/build_temporal.py", "tools/train_parity.py",
+    "tools/train_temporal_readout.py", "temporal_decoder/readout.py",
     "team_decoder/decoder.py", "temporal_decoder/decoder.py", "temporal_decoder/kernel.cpp",
     "temporal_decoder/spectral.cpp", "organizer/LICENSE", "organizer/submission_template/decoder.py",
     "artifacts/stage01/report.json", "data/splits/train_reserved.npy",
     "docs/DESIGN_DECISIONS.md", "docs/STAGE04_TEMPORAL_EXPERIMENT.md", "docs/BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
     "docs/SPECTRAL_TEMPORAL_EXPERIMENT.md", "docs/EXACT_SUFFIX_EXPERIMENT.md",
+    "docs/TWO_SLICE_LOOKAHEAD_EXPERIMENT.md", "docs/AMBIGUOUS_READOUT_EXPERIMENT.md",
 )
 
 
@@ -60,8 +62,11 @@ def generate_archive(candidate, output):
 def hand_in_readme(candidate, manifest):
     name = Path(manifest["artifact"]).name
     digest = manifest["validation"]["sha256"]
-    mode = {SPECTRAL: "--spectral", SUFFIX: "--suffix"}.get(candidate)
-    extra_build = f"\nOPENBLAS_NUM_THREADS=1 python tools/build_temporal.py {mode}" if mode else ""
+    modes = {SPECTRAL: ("--spectral",), SUFFIX: ("--suffix",),
+             LOOKAHEAD: ("--suffix", "--lookahead"), READOUT: ("--suffix",)}.get(candidate, ())
+    extra_build = "".join(f"\nOPENBLAS_NUM_THREADS=1 python tools/build_temporal.py {mode}" for mode in modes)
+    if candidate == READOUT:
+        extra_build += "\nOPENBLAS_NUM_THREADS=1 python tools/train_temporal_readout.py"
     return f"""# PHANTOMS OF QUANTUM decoder
 
 This package contains the {candidate} decoder. Install the pinned requirements in
@@ -123,7 +128,7 @@ if verified["sha256"] != sys.argv[4]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX), required=True)
+    parser.add_argument("--candidate", choices=(BIDIRECTIONAL, SPECTRAL, SUFFIX, LOOKAHEAD, READOUT), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()

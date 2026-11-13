@@ -116,9 +116,9 @@ struct Scratch {
 
     Scratch() { ranked.reserve(beam_width * fanout); }
 
-    void advance(Beam& beam, const Edge* table, const double* marginal,
-                 unsigned syndrome, unsigned next_syndrome, int width,
-                 unsigned likelihood_shift = 0, unsigned terminal_syndrome = 0) {
+    template <typename Likelihood>
+    void advance_ranked(Beam& beam, const Edge* table, unsigned syndrome,
+                        int width, Likelihood likelihood) {
         ranked.clear();
         for (int i = 0; i < beam.count; ++i) {
             const auto& state = beam.links[i];
@@ -132,8 +132,7 @@ struct Scratch {
             }
         }
         for (auto& item : ranked) {
-            const auto likelihood_index = ((item.boundary ^ next_syndrome) << likelihood_shift) | terminal_syndrome;
-            item.score = sums[item.boundary][0] * marginal[likelihood_index];
+            item.score = sums[item.boundary][0] * likelihood(item.boundary);
         }
         beam.count = std::min(int(ranked.size()), width);
         std::partial_sort(ranked.begin(), ranked.begin() + beam.count, ranked.end(), earlier);
@@ -141,6 +140,14 @@ struct Scratch {
             beam.links[i] = {ranked[i].boundary, sums[ranked[i].boundary]};
         }
         for (const auto& item : ranked) sums[item.boundary] = {};
+    }
+
+    void advance(Beam& beam, const Edge* table, const double* marginal,
+                 unsigned syndrome, unsigned next_syndrome, int width,
+                 unsigned likelihood_shift = 0, unsigned terminal_syndrome = 0) {
+        advance_ranked(beam, table, syndrome, width, [=](unsigned boundary) {
+            return marginal[((boundary ^ next_syndrome) << likelihood_shift) | terminal_syndrome];
+        });
     }
 };
 
@@ -200,16 +207,26 @@ extern "C" int temporal_wide_moments(const std::uint16_t* observed, std::size_t 
     });
 }
 
-extern "C" int temporal_suffix_moments(const std::uint16_t* observed, std::size_t shots,
-                                       const Edge* const* tables, const double* const* marginals,
-                                       const float* suffix, double* output) {
+namespace {
+int decode_suffix(const std::uint16_t* observed, std::size_t shots,
+                  const Edge* const* tables, const double* const* marginals,
+                  const float* suffix, const float* const* joints,
+                  const std::int16_t* const* indexes, double* output) {
     try {
         Scratch scratch;
         for (std::size_t shot = 0; shot < shots; ++shot) {
             const auto* syndrome = observed + 6 * shot;
             Beam beam;
             for (int t = 0; t < 3 && beam.count; ++t) {
-                scratch.advance(beam, tables[t], marginals[t], syndrome[t], syndrome[t + 1], beam_width);
+                const auto next = syndrome[t + 1];
+                const auto row = indexes ? indexes[t][syndrome[t + 2]] : -1;
+                if (row >= 0) {
+                    const auto* joint = joints[t] + (std::size_t(row) << out_bits);
+                    scratch.advance_ranked(beam, tables[t], syndrome[t], beam_width,
+                                           [=](unsigned boundary) { return joint[boundary ^ next]; });
+                } else {
+                    scratch.advance(beam, tables[t], marginals[t], syndrome[t], next, beam_width);
+                }
             }
             scratch.advance(beam, tables[3], marginals[3], syndrome[3], syndrome[4],
                             beam_width, 7, syndrome[5]);
@@ -226,6 +243,20 @@ extern "C" int temporal_suffix_moments(const std::uint16_t* observed, std::size_
     } catch (...) {
         return 1;
     }
+}
+}
+
+extern "C" int temporal_suffix_moments(const std::uint16_t* observed, std::size_t shots,
+                                       const Edge* const* tables, const double* const* marginals,
+                                       const float* suffix, double* output) {
+    return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output);
+}
+
+extern "C" int temporal_lookahead_moments(const std::uint16_t* observed, std::size_t shots,
+                                          const Edge* const* tables, const double* const* marginals,
+                                          const float* suffix, const float* const* joints,
+                                          const std::int16_t* const* indexes, double* output) {
+    return decode_suffix(observed, shots, tables, marginals, suffix, joints, indexes, output);
 }
 
 // Tables are ordered left to right for two slices, then right to left for three.

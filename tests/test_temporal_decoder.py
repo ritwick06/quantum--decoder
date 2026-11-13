@@ -10,7 +10,8 @@ import stim
 
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
-from tools.build_temporal import ADAPTIVE, CHECKPOINT, MIDPOINT, SUFFIX, spectral_builder, xor_moments
+from temporal_decoder import readout
+from tools.build_temporal import ADAPTIVE, CHECKPOINT, LOOKAHEAD, MIDPOINT, SUFFIX, spectral_builder, xor_moments
 
 
 class TemporalTests(unittest.TestCase):
@@ -25,6 +26,18 @@ class TemporalTests(unittest.TestCase):
             decoder.logical_decisions(forward + reverse),
             [[1, -1, -1, 0], [-1, -1, -1, -1]],
         )
+
+    def test_readout_features_use_relative_masses_and_select_bits_independently(self):
+        forward = np.array([[2., 1., 2., -2., 0.]])
+        reverse = np.array([[1., -1., 1., -1., 0.]])
+        prepared = readout.direction_features(forward, reverse)
+        np.testing.assert_array_equal(prepared[-1], [[True, False, False, True]])
+        design = readout.feature_columns(prepared, np.array([[1, 2, 3, 4, 5, 6]]),
+                                         np.array([[1, 0, 0, 0]]), np.array([True]), 0)
+        self.assertEqual(design.shape, (1, 26))
+        np.testing.assert_allclose(design[0, :8], [0, 1, -1, 0, 0.5, -1, np.log(2), 1])
+        np.testing.assert_array_equal(design[0, 14:20], [0.5, 1, 1.5, 2, 2.5, 3])
+        np.testing.assert_array_equal(design[0, 20:], [-1, -2, -3, -4, -5, -6])
 
     def test_bidirectional_checkpoint_keeps_forward_predictions_and_row_order(self):
         path = CHECKPOINT.parent / "temporal_bidir_v1"
@@ -182,6 +195,31 @@ class TemporalTests(unittest.TestCase):
                                                terminal.ctypes.data, actual.ctypes.data)
         self.assertEqual(status, 0)
         np.testing.assert_array_equal(actual, [[1.0] * 5, [0.125, -0.125, -0.125, 0.125, 0.125]])
+
+    def test_joint_lookahead_retains_path_that_matches_two_slices(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / LOOKAHEAD / "kernel.so")
+        tables = [np.zeros((64, decoder.FANOUT), dtype=decoder.EDGE) for _ in range(4)]
+        for mask in range(32):
+            tables[0][0, mask] = (mask, [1.0] * 5)
+        tables[0][0, 32] = (32, [0.5, -0.5, 0.5, 0.5, 0.5])
+        tables[1][32, 0] = (1, [1.0] * 5)
+        for table in tables[2:]:
+            table[0, 0] = (0, [1.0] * 5)
+        terminal = np.ones((128, 5), dtype=np.float32)
+        marginals = [np.ones(64) for _ in range(3)] + [np.ones(128)]
+        indexes = [np.array([-1, 0], dtype=np.int16), np.full(2, -1, dtype=np.int16), np.full(2, -1, dtype=np.int16)]
+        joint = np.zeros((1, 1 << 14), dtype=np.float32)
+        joint[0, 32] = 1.0
+        ptrs = lambda arrays: (ctypes.c_void_p * len(arrays))(*(a.ctypes.data for a in arrays))
+        observed = np.zeros((2, 6), dtype=np.uint16)
+        observed[1, 2] = 1
+        actual = np.empty((2, 5), dtype=np.float64)
+        status = kernel.temporal_lookahead_moments(
+            observed.ctypes.data, len(observed), ptrs(tables), ptrs(marginals),
+            terminal.ctypes.data, ptrs([joint] * 3), ptrs(indexes), actual.ctypes.data,
+        )
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, [[0] * 5, [0.5, -0.5, 0.5, 0.5, 0.5]])
 
     def test_wide_beam_recovers_a_path_pruned_by_narrow_beam(self):
         kernel = decoder.load_kernel(CHECKPOINT.parent / ADAPTIVE / "kernel.so")
