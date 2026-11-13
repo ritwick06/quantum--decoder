@@ -19,7 +19,7 @@ import numpy as np
 import stim
 
 from stage01_support import load_circuits, problem_info, sha256, write_json
-from temporal_decoder.decoder import EDGE, FANOUT, ROUND_SIZES, circuit_digest, load_kernel
+from temporal_decoder.decoder import EDGE, EXPANDED_FANOUT, FANOUT, ROUND_SIZES, circuit_digest, load_kernel
 
 
 CANDIDATE = "temporal_v1"
@@ -30,6 +30,7 @@ SPECTRAL = "temporal_spectral_v1"
 SUFFIX = "temporal_suffix_v1"
 LOOKAHEAD = "temporal_lookahead_v1"
 READOUT = "temporal_readout_v1"
+EXPANDED = "temporal_expanded_v1"
 CHECKPOINT = ROOT / "artifacts/checkpoints" / CANDIDATE
 FALLBACK = ROOT / "artifacts/checkpoints/parity_v1"
 
@@ -50,7 +51,7 @@ def projected_masks(checks, indexes):
     return shifts @ checks[indexes].astype(np.uint32)
 
 
-def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None, reuse=None):
+def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None, reuse=None, expanded=False):
     information = problem_info(circuit)
     checks, logicals, probabilities = information["H"], information["L"], information["p"]
     if not np.isfinite(probabilities).all() or np.any((probabilities < 0) | (probabilities >= 0.5)):
@@ -68,20 +69,25 @@ def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None
     logical = projected_masks(logicals, list(range(4)))
     masses = []
     for t, indexes in enumerate(groups):
+        if expanded and t >= 4:
+            break
         selected = earliest == t
         incoming = projected_masks(checks[:, selected], indexes)
         labels, p = logical[selected], probabilities[selected]
-        marginal = xor_moments(incoming, labels, p, 1 << len(indexes))
-        if t:
+        if not expanded:
+            marginal = xor_moments(incoming, labels, p, 1 << len(indexes))
+        if t and not expanded:
             np.save(path / f"{basis}_marginal_{t}.npy", marginal[:, 0], allow_pickle=False)
         if t == 5:
             np.save(path / f"{basis}_terminal.npy", marginal, allow_pickle=False)
         else:
             outgoing = projected_masks(checks[:, selected], groups[t + 1])
             tags = np.ascontiguousarray((incoming << 18) | (outgoing << 4) | labels, dtype=np.uint32)
-            table = np.zeros((1 << len(indexes), FANOUT), dtype=EDGE)
-            key = (len(indexes), len(groups[t + 1]), tags.tobytes(), p.tobytes())
-            output = path / f"{basis}_edges_{t}.npy"
+            width = EXPANDED_FANOUT if expanded else FANOUT
+            table = np.zeros((1 << len(indexes), width), dtype=EDGE)
+            key = (width, len(indexes), len(groups[t + 1]), tags.tobytes(), p.tobytes())
+            edge_name = "expanded_edges" if expanded else "edges"
+            output = path / f"{basis}_{edge_name}_{t}.npy"
             if reuse is not None and key in reuse:
                 existing, retained = reuse[key]
                 shutil.copyfile(existing, output)
@@ -90,7 +96,11 @@ def generate_basis(path, basis, circuit, kernel, *, reverse=False, spectral=None
                 continue
             if spectral is None:
                 odds = np.ascontiguousarray(p / (1 - p))
-                status = kernel.temporal_build(tags.ctypes.data, odds.ctypes.data, len(tags), len(table), table.ctypes.data)
+                if expanded:
+                    status = kernel.temporal_build_width(tags.ctypes.data, odds.ctypes.data, len(tags),
+                                                         len(table), table.ctypes.data, width)
+                else:
+                    status = kernel.temporal_build(tags.ctypes.data, odds.ctypes.data, len(tags), len(table), table.ctypes.data)
                 table["mass"] *= np.prod(1 - p)
             else:
                 status = spectral(tags.ctypes.data, p.ctypes.data, len(tags), len(indexes),
@@ -227,15 +237,16 @@ def main():
     modes.add_argument("--spectral", action="store_true")
     modes.add_argument("--suffix", action="store_true")
     modes.add_argument("--lookahead", action="store_true")
+    modes.add_argument("--expanded", action="store_true")
     args = parser.parse_args()
-    modes = {name: candidate for name, candidate in (("lookahead", LOOKAHEAD), ("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
+    modes = {name: candidate for name, candidate in (("expanded", EXPANDED), ("lookahead", LOOKAHEAD), ("suffix", SUFFIX), ("spectral", SPECTRAL), ("adaptive", ADAPTIVE), ("midpoint", MIDPOINT),
                                                     ("bidirectional", BIDIRECTIONAL))}
     candidate = next((value for name, value in modes.items() if getattr(args, name)), CANDIDATE)
     destination = CHECKPOINT.parent / candidate
     design = {CANDIDATE: "STAGE04_TEMPORAL_EXPERIMENT.md", BIDIRECTIONAL: "BIDIRECTIONAL_TEMPORAL_EXPERIMENT.md",
               MIDPOINT: "MIDPOINT_TEMPORAL_EXPERIMENT.md", ADAPTIVE: "ADAPTIVE_BEAM_EXPERIMENT.md",
               SPECTRAL: "SPECTRAL_TEMPORAL_EXPERIMENT.md", SUFFIX: "EXACT_SUFFIX_EXPERIMENT.md",
-              LOOKAHEAD: "TWO_SLICE_LOOKAHEAD_EXPERIMENT.md"}[candidate]
+              LOOKAHEAD: "TWO_SLICE_LOOKAHEAD_EXPERIMENT.md", EXPANDED: "EXPANDED_TRANSITIONS_EXPERIMENT.md"}[candidate]
     start = time.perf_counter()
     if destination.exists():
         raise FileExistsError(destination)
@@ -247,7 +258,7 @@ def main():
             raise ValueError(f"Parity fallback changed: {name}")
     audit = json.loads((ROOT / "artifacts/stage01/report.json").read_text())
     predecessor = CHECKPOINT.parent / BIDIRECTIONAL if candidate in (MIDPOINT, ADAPTIVE, SPECTRAL, SUFFIX) else CHECKPOINT
-    if args.lookahead:
+    if args.lookahead or args.expanded:
         predecessor = CHECKPOINT.parent / SUFFIX
     incumbent = json.loads((predecessor / "provenance.json").read_text()) if candidate != CANDIDATE else None
     if incumbent:
@@ -278,7 +289,7 @@ def main():
             fingerprints[basis] = circuit_digest(circuit)
             if fingerprints[basis] != audit["circuits"][basis]["canonical_circuit_sha256"]:
                 raise ValueError(f"Audited circuit changed: {basis}")
-            if args.lookahead:
+            if args.lookahead or args.expanded:
                 groups = previous_metadata["detector_groups"][basis]
                 detector_groups[basis] = groups
                 for name in incumbent["files"]:
@@ -286,7 +297,13 @@ def main():
                         shutil.copyfile(predecessor / name, path / name)
                 for prefix, ordered in ((basis, groups), (f"{basis}_reverse", groups[::-1])):
                     retained_mass[prefix] = incumbent["retained_mass_by_slice"][prefix]
-                    generate_lookahead(path, prefix, circuit, ordered, spectral, reuse)
+                    if args.expanded:
+                        built_groups, retained_mass[f"{prefix}_expanded"] = generate_basis(
+                            path, prefix, circuit, kernel, reverse=prefix.endswith("_reverse"), reuse=reuse, expanded=True)
+                        if built_groups != ordered:
+                            raise ValueError(f"Expanded detector groups changed for {prefix}")
+                    else:
+                        generate_lookahead(path, prefix, circuit, ordered, spectral, reuse)
             elif args.suffix:
                 groups = previous_metadata["detector_groups"][basis]
                 detector_groups[basis] = groups
@@ -321,7 +338,7 @@ def main():
                 detector_groups[basis], retained_mass[basis] = generate_basis(path, basis, circuit, kernel)
         assets = {str(file.relative_to(path)): sha256(file) for file in sorted(path.rglob("*")) if file.is_file()}
         version = {CANDIDATE: 1, BIDIRECTIONAL: 2, MIDPOINT: 3, ADAPTIVE: 4,
-                   SPECTRAL: 2, SUFFIX: 5, LOOKAHEAD: 6}[candidate]
+                   SPECTRAL: 2, SUFFIX: 5, LOOKAHEAD: 6, EXPANDED: 8}[candidate]
         write_json(path / "model.json", {"format_version": version, "canonical_circuit_sha256": fingerprints,
                                         "detector_groups": detector_groups, "assets": assets})
         elapsed = time.perf_counter() - start

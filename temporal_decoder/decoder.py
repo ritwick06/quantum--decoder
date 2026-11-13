@@ -15,6 +15,7 @@ import stim
 HERE = Path(__file__).resolve().parent
 ROUND_SIZES = (7, 14, 14, 14, 14, 7)
 FANOUT = 48
+EXPANDED_FANOUT = 96
 WORKERS = 4
 EDGE = np.dtype([("outgoing", "<u4"), ("mass", "<f4", 5)])
 
@@ -31,7 +32,8 @@ def load_kernel(path):
     library.temporal_build.restype = ctypes.c_int
     library.temporal_decode.argtypes = [pointer, ctypes.c_size_t, pointer, pointer, pointer, pointer]
     library.temporal_decode.restype = ctypes.c_int
-    for name in ("temporal_moments", "temporal_midpoint", "temporal_wide_moments", "temporal_suffix_moments"):
+    for name in ("temporal_moments", "temporal_midpoint", "temporal_wide_moments",
+                 "temporal_suffix_moments", "temporal_expanded_moments"):
         infer = getattr(library, name, None)
         if infer is not None:
             infer.argtypes = library.temporal_decode.argtypes
@@ -40,6 +42,10 @@ def load_kernel(path):
     if lookahead is not None:
         lookahead.argtypes = library.temporal_decode.argtypes + [pointer, pointer]
         lookahead.restype = ctypes.c_int
+    build_width = getattr(library, "temporal_build_width", None)
+    if build_width is not None:
+        build_width.argtypes = library.temporal_build.argtypes + [ctypes.c_uint]
+        build_width.restype = ctypes.c_int
     return library
 
 
@@ -52,7 +58,7 @@ def load_model():
     try:
         metadata = json.loads((HERE / "model.json").read_text(encoding="utf-8"))
         version = metadata["format_version"]
-        if version not in (1, 2, 3, 4, 5, 6, 7):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8):
             raise ValueError("Unsupported temporal model format")
         for name, expected in metadata["assets"].items():
             if digest(HERE / name) != expected:
@@ -68,11 +74,15 @@ def load_model():
             if version == 3:
                 models[fingerprint] = version, (_load_midpoint(basis, groups),)
                 continue
-            if version in (5, 6, 7):
-                models[fingerprint] = version, (
+            if version in (5, 6, 7, 8):
+                directions = (
                     _load_suffix(basis, groups, lookahead=version == 6),
                     _load_suffix(f"{basis}_reverse", groups[::-1], lookahead=version == 6),
                 )
+                if version == 8:
+                    directions += (_load_suffix(basis, groups, expanded=True),
+                                   _load_suffix(f"{basis}_reverse", groups[::-1], expanded=True))
+                models[fingerprint] = version, directions
                 continue
             directions = [_load_direction(basis, groups)]
             if version in (2, 4):
@@ -118,9 +128,11 @@ def _load_midpoint(basis, groups):
     return groups, tables, marginals, middle
 
 
-def _load_suffix(prefix, groups, *, lookahead=False):
+def _load_suffix(prefix, groups, *, lookahead=False, expanded=False):
     _check_groups(groups)
-    tables = tuple(_load_array(f"{prefix}_edges_{t}", (1 << size, FANOUT), EDGE)
+    edge_name = f"{prefix}_expanded_edges" if expanded else f"{prefix}_edges"
+    width = EXPANDED_FANOUT if expanded else FANOUT
+    tables = tuple(_load_array(f"{edge_name}_{t}", (1 << size, width), EDGE)
                    for t, size in enumerate(ROUND_SIZES[:4]))
     marginals = tuple(_load_array(f"{prefix}_marginal_{t}", (1 << size,), np.float64)
                       for t, size in enumerate(ROUND_SIZES[1:4], start=1))
@@ -144,12 +156,13 @@ def observed_slices(events, groups):
     return observed
 
 
-def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False, wide=False, suffix=False):
+def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=False,
+                     wide=False, suffix=False, expanded=False):
     groups, tables, marginals, terminal, *lookahead = model
     observed = observed_slices(events, groups)
     table_pointers = (ctypes.c_void_p * len(tables))(*(table.ctypes.data for table in tables))
     marginal_pointers = (ctypes.c_void_p * len(marginals))(*(marginal.ctypes.data for marginal in marginals))
-    if return_moments or midpoint or wide or suffix:
+    if return_moments or midpoint or wide or suffix or expanded:
         result = np.empty((len(events), 5), dtype=np.float64)
         if midpoint:
             infer = kernel.temporal_midpoint
@@ -157,6 +170,8 @@ def _decode_temporal(events, model, kernel, *, return_moments=False, midpoint=Fa
             infer = kernel.temporal_wide_moments
         elif lookahead:
             infer = kernel.temporal_lookahead_moments
+        elif expanded:
+            infer = kernel.temporal_expanded_moments
         elif suffix:
             infer = kernel.temporal_suffix_moments
         else:
@@ -264,13 +279,22 @@ def decode(circuit, detector_events):
         result = _decode_temporal(events, directions[0], kernel)
     elif version == 3:
         result = logical_decisions(_decode_temporal(events, directions[0], kernel, midpoint=True))
-    elif version in (5, 6, 7):
-        forward, reverse = directions
+    elif version in (5, 6, 7, 8):
+        forward, reverse = directions[:2]
         a = _decode_temporal(events, forward, kernel, suffix=True)
         b = _decode_temporal(events, reverse, kernel, suffix=True)
         result = logical_decisions(a + b)
         if version == 7:
             result = _calibrated_readout(circuit, events, forward[0], fallback, a, b, result)
+        elif version == 8:
+            total = a + b
+            retry = (np.abs(total[:, 1:]) <= 0.4 * total[:, :1]) | ((a[:, 1:] < 0) != (b[:, 1:] < 0))
+            rows = retry.any(axis=1)
+            if rows.any():
+                selected = events[rows]
+                refined = (_decode_temporal(selected, directions[2], kernel, expanded=True)
+                           + _decode_temporal(selected, directions[3], kernel, expanded=True))
+                result[rows] = np.where(retry[rows], logical_decisions(refined), result[rows])
     else:
         result = _bidirectional(events, directions, kernel, adaptive=version == 4)
     unknown = result < 0

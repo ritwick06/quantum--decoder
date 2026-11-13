@@ -13,7 +13,7 @@ from evaluate_parity import ROOT, input_data, predict, prediction_hashes, checkp
 import numpy as np
 
 from stage01_support import sha256, write_json
-from tools.build_temporal import ADAPTIVE, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, LOOKAHEAD, MIDPOINT, READOUT, SPECTRAL, SUFFIX
+from tools.build_temporal import ADAPTIVE, BIDIRECTIONAL, CANDIDATE, CHECKPOINT, EXPANDED, LOOKAHEAD, MIDPOINT, READOUT, SPECTRAL, SUFFIX
 
 
 EVIDENCE = ROOT / "artifacts/stage04"
@@ -27,6 +27,7 @@ EXPERIMENTS = {
     SUFFIX: ("suffix", BIDIRECTIONAL, 35),
     LOOKAHEAD: ("lookahead", SUFFIX, 36),
     READOUT: ("readout", SUFFIX, 37),
+    EXPANDED: ("expanded", SUFFIX, 38),
 }
 
 

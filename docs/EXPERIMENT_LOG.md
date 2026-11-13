@@ -108,3 +108,7 @@ The local frozen LER was 0.03406250 (X 0.03467500, Z 0.03345000), against 0.0340
 ## Stage 04 calibrated readout for ambiguous bits
 
 The local frozen LER was 0.03401250 (X 0.03460750, Z 0.03341750), a point gain of 0.00004375 over `temporal_suffix_v1`. The paired 95% interval includes zero, so the candidate failed the accuracy gate. Its five-run local median was 10.97 seconds and all 37 tests passed. [Calibrated readout experiment](AMBIGUOUS_READOUT_EXPERIMENT.md)
+
+## Stage 04 expanded transitions
+
+The local frozen LER was 0.03392625 (X 0.03453250, Z 0.03332000), an improvement of 0.000130 over `temporal_suffix_v1`. The independent 500,000-shot comparison confirmed a gain of 0.00011750. The five-run local median was 9.75 seconds and all 38 tests passed. [Expanded transition experiment](EXPANDED_TRANSITIONS_EXPERIMENT.md)

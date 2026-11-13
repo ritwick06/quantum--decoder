@@ -1,0 +1,7 @@
+{
+  "candidate": "temporal_expanded_v1",
+  "archive_sha256": "4ce670ff7654056a53075b24b0eccdac8cae0e76502cb8f872873b4c319dcf7d",
+  "csv_sha256": "c887d99484a2d5720565be73d1b602ea44f3c0376abb5dea9748e3ee882f7bbd",
+  "rows": 200000,
+  "verified_all_predictions_in_fresh_process": true
+}

@@ -107,6 +107,22 @@
       "uploaded_by": "user",
       "submission_description": "try 3",
       "score_evidence": "User-provided submissions screenshot on 2026-11-13 IST"
+    },
+    {
+      "candidate": "temporal_expanded_v1",
+      "artifact": "artifacts/submissions/temporal_expanded_v1.csv",
+      "sha256": "c887d99484a2d5720565be73d1b602ea44f3c0376abb5dea9748e3ee882f7bbd",
+      "status": "promoted locally; ready for manual upload",
+      "created_ist": "2026-11-14T01:54:13.909333+05:30",
+      "submission_id": null,
+      "submitted_at": null,
+      "public_score": null,
+      "private_score": null,
+      "selected_for_final": false,
+      "local_validation_ler": 0.03392625,
+      "checkpoint_provenance_sha256": "8aecb9ba557d553b8a1920210eec25e7cfb99fe68b7d58d4d1db7583dfd8c9ff",
+      "validation_report_sha256": "79c24e2911adcfc2eeaeceded7062eb900a1940a44c035922c8b86cc653d9157",
+      "confirmation_sha256": "0e1f06841d0bb1663bed3953686d373dbd02e15c338d85490dc6259b8d4a706c"
     }
   ],
   "team_public_leaderboard_snapshot": {

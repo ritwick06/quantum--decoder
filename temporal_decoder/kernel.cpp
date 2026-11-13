@@ -59,8 +59,8 @@ void propagate(const Edge& edge, const Mass& source, Mass& target) {
 }
 
 // Each tag places the input parity above its outgoing parity and logical bits.
-extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int count,
-                              int in_size, Edge* output) {
+extern "C" int temporal_build_width(const std::uint32_t* tags, const double* odds, int count,
+                                    int in_size, Edge* output, unsigned edge_width) {
     try {
         std::vector<std::vector<Subset>> rows(in_size);
         const auto append = [&](std::uint32_t tag, double weight) {
@@ -84,13 +84,13 @@ extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int
                 return a.odds < b.odds;
             });
             collect(row, links);
-            const auto size = std::min(links.size(), std::size_t(fanout));
+            const auto size = std::min(links.size(), std::size_t(edge_width));
             std::partial_sort(links.begin(), links.begin() + size, links.end(),
                               [](const Link& a, const Link& b) {
                 return earlier({a.boundary, a.mass[0]}, {b.boundary, b.mass[0]});
             });
             for (std::size_t j = 0; j < size; ++j) {
-                Edge& edge = output[std::size_t(i) * fanout + j];
+                Edge& edge = output[std::size_t(i) * edge_width + j];
                 edge.outgoing = links[j].boundary;
                 for (int k = 0; k < moments; ++k) edge.mass[k] = static_cast<float>(links[j].mass[k]);
             }
@@ -100,6 +100,11 @@ extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int
     } catch (...) {
         return 1;
     }
+}
+
+extern "C" int temporal_build(const std::uint32_t* tags, const double* odds, int count,
+                              int in_size, Edge* output) {
+    return temporal_build_width(tags, odds, count, in_size, output, fanout);
 }
 
 namespace {
@@ -118,13 +123,13 @@ struct Scratch {
 
     template <typename Likelihood>
     void advance_ranked(Beam& beam, const Edge* table, unsigned syndrome,
-                        int width, Likelihood likelihood) {
+                        int width, Likelihood likelihood, unsigned edge_width = fanout) {
         ranked.clear();
         for (int i = 0; i < beam.count; ++i) {
             const auto& state = beam.links[i];
             const auto row = state.boundary ^ syndrome;
-            const Edge* edges = table + std::size_t(row) * fanout;
-            for (int j = 0; j < fanout && edges[j].mass[0] > 0; ++j) {
+            const Edge* edges = table + std::size_t(row) * edge_width;
+            for (unsigned j = 0; j < edge_width && edges[j].mass[0] > 0; ++j) {
                 const auto& edge = edges[j];
                 auto& mass = sums[edge.outgoing];
                 if (mass[0] == 0) ranked.push_back({edge.outgoing, 0});
@@ -144,10 +149,11 @@ struct Scratch {
 
     void advance(Beam& beam, const Edge* table, const double* marginal,
                  unsigned syndrome, unsigned next_syndrome, int width,
-                 unsigned likelihood_shift = 0, unsigned terminal_syndrome = 0) {
+                 unsigned likelihood_shift = 0, unsigned terminal_syndrome = 0,
+                 unsigned edge_width = fanout) {
         advance_ranked(beam, table, syndrome, width, [=](unsigned boundary) {
             return marginal[((boundary ^ next_syndrome) << likelihood_shift) | terminal_syndrome];
-        });
+        }, edge_width);
     }
 };
 
@@ -211,7 +217,7 @@ namespace {
 int decode_suffix(const std::uint16_t* observed, std::size_t shots,
                   const Edge* const* tables, const double* const* marginals,
                   const float* suffix, const float* const* joints,
-                  const std::int16_t* const* indexes, double* output) {
+                  const std::int16_t* const* indexes, double* output, unsigned edge_width = fanout) {
     try {
         Scratch scratch;
         for (std::size_t shot = 0; shot < shots; ++shot) {
@@ -225,11 +231,11 @@ int decode_suffix(const std::uint16_t* observed, std::size_t shots,
                     scratch.advance_ranked(beam, tables[t], syndrome[t], beam_width,
                                            [=](unsigned boundary) { return joint[boundary ^ next]; });
                 } else {
-                    scratch.advance(beam, tables[t], marginals[t], syndrome[t], next, beam_width);
+                    scratch.advance(beam, tables[t], marginals[t], syndrome[t], next, beam_width, 0, 0, edge_width);
                 }
             }
             scratch.advance(beam, tables[3], marginals[3], syndrome[3], syndrome[4],
-                            beam_width, 7, syndrome[5]);
+                            beam_width, 7, syndrome[5], edge_width);
             Mass posterior{};
             for (int i = 0; i < beam.count; ++i) {
                 const auto& state = beam.links[i];
@@ -250,6 +256,12 @@ extern "C" int temporal_suffix_moments(const std::uint16_t* observed, std::size_
                                        const Edge* const* tables, const double* const* marginals,
                                        const float* suffix, double* output) {
     return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output);
+}
+
+extern "C" int temporal_expanded_moments(const std::uint16_t* observed, std::size_t shots,
+                                         const Edge* const* tables, const double* const* marginals,
+                                         const float* suffix, double* output) {
+    return decode_suffix(observed, shots, tables, marginals, suffix, nullptr, nullptr, output, 96);
 }
 
 extern "C" int temporal_lookahead_moments(const std::uint16_t* observed, std::size_t shots,

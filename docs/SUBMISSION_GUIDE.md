@@ -1,6 +1,6 @@
 # Submission artifact and manual upload guide
 
-**Current verified save:** [temporal_suffix_v1.csv](../artifacts/submissions/temporal_suffix_v1.csv) is already scored on Kaggle. Check [BEST_SAVE.md](../BEST_SAVE.md) for the current file before any further upload. The [submission ledger](../artifacts/submissions/ledger.json) records scores and selection evidence.
+**Current verified save for manual upload:** [temporal_expanded_v1.csv](../artifacts/submissions/temporal_expanded_v1.csv). Check [BEST_SAVE.md](../BEST_SAVE.md) for the current file before any further upload. The [submission ledger](../artifacts/submissions/ledger.json) records scores and selection evidence.
 
 The instructions below are the historical zero-baseline verification record. Keep that baseline local.
 

@@ -11,7 +11,7 @@ import stim
 from stage01_support import ROOT, load_circuits
 from temporal_decoder import decoder
 from temporal_decoder import readout
-from tools.build_temporal import ADAPTIVE, CHECKPOINT, LOOKAHEAD, MIDPOINT, SUFFIX, spectral_builder, xor_moments
+from tools.build_temporal import ADAPTIVE, CHECKPOINT, EXPANDED, LOOKAHEAD, MIDPOINT, SUFFIX, spectral_builder, xor_moments
 
 
 class TemporalTests(unittest.TestCase):
@@ -220,6 +220,29 @@ class TemporalTests(unittest.TestCase):
         )
         self.assertEqual(status, 0)
         np.testing.assert_array_equal(actual, [[0] * 5, [0.5, -0.5, 0.5, 0.5, 0.5]])
+
+    def test_expanded_transition_can_recover_path_after_the_original_fanout(self):
+        kernel = decoder.load_kernel(CHECKPOINT.parent / EXPANDED / "kernel.so")
+        width = decoder.EXPANDED_FANOUT
+        tables = [np.zeros((64, width), dtype=decoder.EDGE) for _ in range(4)]
+        for mask in range(decoder.FANOUT):
+            tables[0][0, mask] = (mask, [1.0] * 5)
+        tables[0][0, decoder.FANOUT] = (48, [0.5, -0.5, 0.5, 0.5, 0.5])
+        tables[1][48, 0] = (0, [1.0] * 5)
+        for table in tables[2:]:
+            table[0, 0] = (0, [1.0] * 5)
+        terminal = np.ones((128, 5), dtype=np.float32)
+        marginals = [np.zeros(64), np.ones(64), np.ones(64), np.ones(128)]
+        marginals[0][48] = 1.0
+        table_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in tables))
+        marginal_ptrs = (ctypes.c_void_p * 4)(*(a.ctypes.data for a in marginals))
+        observed = np.zeros((1, 6), dtype=np.uint16)
+        actual = np.empty((1, 5), dtype=np.float64)
+        status = kernel.temporal_expanded_moments(
+            observed.ctypes.data, 1, table_ptrs, marginal_ptrs, terminal.ctypes.data, actual.ctypes.data,
+        )
+        self.assertEqual(status, 0)
+        np.testing.assert_array_equal(actual, [[0.5, -0.5, 0.5, 0.5, 0.5]])
 
     def test_wide_beam_recovers_a_path_pruned_by_narrow_beam(self):
         kernel = decoder.load_kernel(CHECKPOINT.parent / ADAPTIVE / "kernel.so")

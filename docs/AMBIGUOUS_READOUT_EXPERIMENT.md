@@ -13,3 +13,5 @@ Compare to `temporal_suffix_v1` on the original frozen holdout with a positive p
 ## Frozen result
 
 Frozen LER fell from 0.03405625 to 0.03401250, with 24 fewer X bit errors and 11 fewer Z bit errors. The paired 95% interval for the gain was [−0.00000189, 0.00008939], so the candidate failed its preregistered accuracy gate. The local median was 10.97 seconds. Training and packaging took 117.5 seconds with peak RSS of 623.3 MiB. All 37 tests passed. [Frozen report](../artifacts/readout/validation.json)
+
+The independent comparison found 36 fewer bit errors across 500,000 shots, a gain of 0.00001800 with a paired 95% interval of [−0.00000902, 0.00004502]. The readout failed promotion. [Independent report](../artifacts/readout/confirmation.json)
